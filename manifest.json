@@ -1,0 +1,24 @@
+{
+    "name": "Medicamentos e Amamentação",
+    "short_name": "MedAmamentação",
+    "description": "Consulte a compatibilidade de medicamentos com a amamentação",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#667eea",
+    "theme_color": "#667eea",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iMjQiIGZpbGw9IiM2NjdlZWEiLz4KPHBhdGggZD0iTTk2IDQ4QzEwOC4yODQgNDggMTE4IDU3LjcxNiAxMTggNzBWNzJIMTA0VjcwQzEwNCA2NS41ODI5IDk5LjQxNzEgNjEgOTQgNjFDODguNTgyOSA2MSA4NCA2NS41ODI5IDg0IDcwVjcySDcwVjcwQzcwIDU3LjcxNiA3OS43MTYgNDggOTYgNDhaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIwIDg0SDcyQzY2LjQ3NzEgODQgNjIgODguNDc3MSA2MiA5NFYxNDBDNjIgMTQ1LjUyMyA2Ni40NzcxIDE1MCA3MiAxNTBIMTIwQzEyNS41MjMgMTUwIDEzMCAxNDUuNTIzIDEzMCAxNDBWOTRDMTMwIDg4LjQ3NzEgMTI1LjUyMyA4NCAxMjAgODRaIiBmaWxsPSJ3aGl0ZSIvPgo8Y2lyY2xlIGN4PSI5NiIgY3k9IjExMiIgcj0iOCIgZmlsbD0iIzY2N2VlYSIvPgo8L3N2Zz4K",
+            "sizes": "192x192",
+            "type": "image/svg+xml"
+        },
+        {
+            "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgdmlld0JveD0iMCAwIDUxMiA1MTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iNjQiIGZpbGw9IiM2NjdlZWEiLz4KPHBhdGggZD0iTTI1NiAxMjhDMjg4LjU2IDEyOCAzMTYgMTU1LjQ0IDMxNiAxODhWMTkySDI3NlYxODhDMjc2IDE3NC43NDUgMjY1LjI1NSAxNjQgMjUyIDE2NEMyMzguNzQ1IDE2NCAyMjggMTc0Ljc0NSAyMjggMTg4VjE5MkgyMDBWMTg4QzIwMCAxNTUuNDQgMjI3LjQ0IDEyOCAyNTYgMTI4WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTMyMCAyMjRIMTkyQzE3MS41NCAyMjQgMTU2IDIzOS41NCAxNTYgMjYwVjM3MkMxNTYgMzkyLjQ2IDE3MS41NCA0MDggMTkyIDQwOEgzMjBDMzQwLjQ2IDQwOCAzNTYgMzkyLjQ2IDM1NiAzNzJWMjYwQzM1NiAyMzkuNTQgMzQwLjQ2IDIyNCAzMjAgMjI0WiIgZmlsbD0id2hpdGUiLz4KPGNpcmNsZSBjeD0iMjU2IiBjeT0iMjk2IiByPSIyNCIgZmlsbD0iIzY2N2VlYSIvPgo8L3N2Zz4K",
+            "sizes": "512x512",
+            "type": "image/svg+xml"
+        }
+    ],
+    "categories": ["health", "medical", "utilities"],
+    "lang": "pt-BR"
+}
