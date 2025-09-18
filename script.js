@@ -20,9 +20,7 @@ const elements = {
     historyList: document.getElementById('historyList'),
     clearHistory: document.getElementById('clearHistory'),
     favorites: document.getElementById('favorites'),
-    favoritesList: document.getElementById('favoritesList'),
-    clearCache: document.getElementById('clearCache'),
-    showCache: document.getElementById('showCache')
+    favoritesList: document.getElementById('favoritesList')
 };
 
 // Configuração da API
@@ -236,9 +234,6 @@ function initializeApp() {
     // Configurar autocompletar
     setupAutocomplete();
     
-    // Atualizar botão de cache
-    updateCacheButton();
-    
     // Mostrar histórico se existir
     if (appState.searchHistory.length > 0) {
         showHistory();
@@ -261,11 +256,6 @@ function setupEventListeners() {
     
     // Histórico
     elements.clearHistory.addEventListener('click', clearHistory);
-    
-    // Cache controls
-    elements.clearCache.addEventListener('click', clearCache);
-    elements.showCache.addEventListener('click', showCache);
-    elements.refreshSuggestions.addEventListener('click', refreshSuggestions);
     
     // Fechar sugestões ao clicar fora
     document.addEventListener('click', function(e) {
@@ -574,7 +564,6 @@ async function searchMedicationById(medicationId, termType) {
             
             // Salvar no cache
             medicationCache.set(key, medication);
-            updateCacheButton();
         }
     
     // Adicionar ao histórico
@@ -646,7 +635,6 @@ async function searchMedication(key) {
                 
                 // Salvar no cache
                 medicationCache.set(key, medication);
-                updateCacheButton();
             } else {
                 // Fallback para base local
                 medication = fallbackDatabase[key];
@@ -1232,35 +1220,6 @@ function searchAlternative(medicationName) {
     handleSearch();
 }
 
-// Funções de gerenciamento de cache
-function clearCache() {
-    if (confirm('Tem certeza que deseja limpar todo o cache de medicamentos?')) {
-        medicationCache.clear();
-        updateCacheButton();
-        console.log('Cache limpo com sucesso');
-    }
-}
-
-function showCache() {
-    const cacheSize = medicationCache.size;
-    const cacheItems = Array.from(medicationCache.entries()).map(([key, value]) => ({
-        key,
-        name: value.name
-    }));
-    
-    if (cacheSize === 0) {
-        alert('Cache vazio. Nenhum medicamento foi consultado ainda.');
-        return;
-    }
-    
-    const cacheList = cacheItems.map(item => `• ${item.name}`).join('\n');
-    alert(`Cache atual (${cacheSize} medicamentos):\n\n${cacheList}`);
-}
-
-function updateCacheButton() {
-    const cacheSize = medicationCache.size;
-    elements.showCache.textContent = `📋 Ver Cache (${cacheSize})`;
-}
 
 // Service Worker para cache (PWA básico)
 if ('serviceWorker' in navigator) {
