@@ -338,8 +338,7 @@ async function searchSuggestions(query) {
                 key: item.id.toString(),
                 type: item.term
             }))
-            .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-            .slice(0, 5);
+            .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
     
         appState.suggestions = matches;
         showSuggestions(matches);
