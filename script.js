@@ -322,21 +322,24 @@ async function searchSuggestions(query) {
         
         const data = await response.json();
         
-        // Filtrar produtos, sinônimos e marcas relevantes e limitar a 5 resultados
-        const matches = data
-            .filter(item => 
-                item.term === 'producto' || 
-                item.term === 'sinonimo' || 
-                item.term === 'marca' ||
-                item.term === 'escritura'
-            )
-            .slice(0, 5)
+        // Filtrar produtos, sinônimos e marcas relevantes
+        const filteredData = data.filter(item => 
+            item.term === 'producto' || 
+            item.term === 'sinonimo' || 
+            item.term === 'marca' ||
+            item.term === 'escritura'
+        );
+        
+        // Mapear e ordenar alfabeticamente por nome
+        const matches = filteredData
             .map(item => ({
                 id: item.id,
                 name: item.nombre_en || item.nombre_es || item.nombre || item.nombre_paises,
                 key: item.id.toString(),
                 type: item.term
-            }));
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+            .slice(0, 5);
     
         appState.suggestions = matches;
         showSuggestions(matches);
