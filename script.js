@@ -22,8 +22,7 @@ const elements = {
     favorites: document.getElementById('favorites'),
     favoritesList: document.getElementById('favoritesList'),
     clearCache: document.getElementById('clearCache'),
-    showCache: document.getElementById('showCache'),
-    refreshSuggestions: document.getElementById('refreshSuggestions')
+    showCache: document.getElementById('showCache')
 };
 
 // Configuração da API
@@ -1230,16 +1229,6 @@ function showCache() {
     
     const cacheList = cacheItems.map(item => `• ${item.name}`).join('\n');
     alert(`Cache atual (${cacheSize} medicamentos):\n\n${cacheList}`);
-}
-
-function refreshSuggestions() {
-    const query = elements.searchInput.value.trim();
-    if (query.length >= 2) {
-        // Forçar nova busca ignorando cache
-        searchSuggestionsDynamic(query);
-    } else {
-        alert('Digite pelo menos 2 caracteres para buscar.');
-    }
 }
 
 function updateCacheButton() {
