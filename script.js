@@ -148,6 +148,26 @@ async function translateMedicationInfo(medication) {
         console.log('Recomendação traduzida:', translated.recommendation.substring(0, 100) + '...');
     }
     
+    // Traduzir alternativas se estiverem em inglês
+    if (medication.alternatives && medication.alternatives.length > 0) {
+        console.log('Traduzindo alternativas:', medication.alternatives.length, 'itens');
+        translated.alternatives = [];
+        
+        for (const alt of medication.alternatives) {
+            const translatedAlt = { ...alt };
+            
+            // Traduzir descrição se estiver em inglês
+            if (alt.description && isEnglish(alt.description)) {
+                console.log('Traduzindo descrição da alternativa:', alt.name);
+                translatedAlt.description = await translateText(alt.description);
+            }
+            
+            translated.alternatives.push(translatedAlt);
+        }
+        
+        console.log('Alternativas traduzidas:', translated.alternatives.length, 'itens');
+    }
+    
     return translated;
 }
 
@@ -161,21 +181,47 @@ const fallbackDatabase = {
         riskLevel: 'very-low',
         riskText: 'Muito Baixo Risco',
         recommendation: 'Paracetamol é considerado seguro durante a amamentação. É o analgésico de primeira escolha para mães lactantes. Apenas 0.1-0.2% da dose materna passa para o leite.',
-        sourceUrl: 'https://e-lactancia.org/breastfeeding/paracetamol/product/'
+        sourceUrl: 'https://e-lactancia.org/breastfeeding/paracetamol/product/',
+        alternatives: [
+            {
+                name: 'Nenhuma alternativa disponível',
+                url: null,
+                description: 'Não temos alternativas para Paracetamol pois é relativamente seguro.'
+            }
+        ]
     },
     'ibuprofeno': {
         name: 'Ibuprofeno',
         riskLevel: 'very-low',
         riskText: 'Muito Baixo Risco',
         recommendation: 'Ibuprofeno é seguro durante a amamentação. Menos de 0.1% da dose materna é excretada no leite materno. Pode ser usado para dor e inflamação.',
-        sourceUrl: 'https://e-lactancia.org/breastfeeding/ibuprofen/product/'
+        sourceUrl: 'https://e-lactancia.org/breastfeeding/ibuprofen/product/',
+        alternatives: [
+            {
+                name: 'Nenhuma alternativa disponível',
+                url: null,
+                description: 'Não temos alternativas para Ibuprofeno pois é relativamente seguro.'
+            }
+        ]
     },
     'dipirona': {
         name: 'Dipirona (Metamizol)',
         riskLevel: 'moderate',
         riskText: 'Risco Moderado',
         recommendation: 'Dipirona deve ser usada com cautela. Pode causar agranulocitose rara mas grave. Use apenas sob orientação médica e por curto período.',
-        sourceUrl: 'https://e-lactancia.org/breastfeeding/metamizole/product/'
+        sourceUrl: 'https://e-lactancia.org/breastfeeding/metamizole/product/',
+        alternatives: [
+            {
+                name: 'Ibuprofeno',
+                url: '/breastfeeding/ibuprofen/product/',
+                description: 'Produto seguro e/ou amamentação é a melhor opção.'
+            },
+            {
+                name: 'Paracetamol',
+                url: '/breastfeeding/paracetamol/product/',
+                description: 'Produto seguro e/ou amamentação é a melhor opção.'
+            }
+        ]
     }
 };
 
@@ -237,7 +283,7 @@ function setupAutocomplete() {
         appState.currentSearch = query;
         
         // Limpar sugestões quando o usuário digita
-        hideSuggestions();
+            hideSuggestions();
     });
     
     // Navegação por teclado
@@ -263,15 +309,15 @@ async function searchSuggestions(query) {
         // Filtrar apenas produtos (medicamentos) e limitar a 5 resultados
         const matches = data
             .filter(item => item.term === 'producto')
-            .slice(0, 5)
+        .slice(0, 5)
             .map(item => ({
                 id: item.id,
                 name: item.nombre || item.nombre_en,
                 key: item.id.toString()
-            }));
-        
-        appState.suggestions = matches;
-        showSuggestions(matches);
+        }));
+    
+    appState.suggestions = matches;
+    showSuggestions(matches);
         
     } catch (error) {
         console.error('Erro ao buscar sugestões:', error);
@@ -448,20 +494,20 @@ async function handleSearch() {
         if (matches.length === 1) {
             const medication = matches[0];
             await searchMedicationById(medication.id, medication.type);
-        } else {
+    } else {
             // Se houver múltiplos resultados, mostrar sugestões
             appState.suggestions = matches;
             showSuggestions(matches);
-        }
+    }
         
     } catch (error) {
         console.error('Erro ao buscar medicamento:', error);
         showError('Erro ao buscar informações do medicamento. Tente novamente.');
-    }
-    
-    hideLoading();
 }
 
+    hideLoading();
+}
+    
 async function searchMedicationById(medicationId, termType) {
     showLoading();
     hideSuggestions();
@@ -485,7 +531,8 @@ async function searchMedicationById(medicationId, termType) {
                     recommendation: details.recommendation,
                     sourceUrl: details.sourceUrl,
                     type: termType,
-                    compatibility: details.compatibility
+                    compatibility: details.compatibility,
+                    alternatives: details.alternatives || []
                 };
             } else {
                 // Fallback se não conseguir buscar detalhes
@@ -495,7 +542,8 @@ async function searchMedicationById(medicationId, termType) {
                     riskText: 'Informação não disponível',
                     recommendation: 'Para informações detalhadas sobre a compatibilidade com a amamentação, consulte a fonte original.',
                     sourceUrl: `${API_DETAIL_SEARCH_URL}${medicationId}&term_type=${termType}`,
-                    type: termType
+                    type: termType,
+                    alternatives: []
                 };
             }
             
@@ -503,11 +551,11 @@ async function searchMedicationById(medicationId, termType) {
             medicationCache.set(key, medication);
             updateCacheButton();
         }
-        
-        // Adicionar ao histórico
-        addToHistory(medication.name, key);
-        
-        // Mostrar resultados
+    
+    // Adicionar ao histórico
+    addToHistory(medication.name, key);
+    
+    // Mostrar resultados
         await showMedicationInfo(medication);
         
     } catch (error) {
@@ -555,7 +603,8 @@ async function searchMedication(key) {
                         recommendation: details.recommendation,
                         sourceUrl: details.sourceUrl,
                         type: apiMedication.term,
-                        compatibility: details.compatibility
+                        compatibility: details.compatibility,
+                        alternatives: details.alternatives || []
                     };
                 } else {
                     // Fallback se não conseguir buscar detalhes
@@ -565,7 +614,8 @@ async function searchMedication(key) {
                         riskText: 'Informação não disponível',
                         recommendation: 'Para informações detalhadas sobre a compatibilidade com a amamentação, consulte a fonte original.',
                         sourceUrl: `${API_DETAIL_SEARCH_URL}${apiMedication.id}&term_type=${apiMedication.term}`,
-                        type: apiMedication.term
+                        type: apiMedication.term,
+                        alternatives: []
                     };
                 }
                 
@@ -598,6 +648,9 @@ async function searchMedication(key) {
 async function showMedicationInfo(medication) {
     // Traduzir informações se necessário
     const translatedMedication = await translateMedicationInfo(medication);
+    
+    console.log('Medicamento completo para exibição:', translatedMedication);
+    console.log('Alternativas do medicamento:', translatedMedication.alternatives);
     
     const riskClass = `risk-${translatedMedication.riskLevel}`;
     
@@ -636,6 +689,47 @@ async function showMedicationInfo(medication) {
         `;
     }
     
+    // Construir seção de alternativas
+    let alternativesInfo = '';
+    console.log('Verificando alternativas:', translatedMedication.alternatives);
+    
+    if (translatedMedication.alternatives && translatedMedication.alternatives.length > 0) {
+        const alternatives = translatedMedication.alternatives;
+        console.log('Alternativas encontradas:', alternatives);
+        
+        if (alternatives.length === 1 && alternatives[0].name === 'Nenhuma alternativa disponível') {
+            // Caso sem alternativas
+            console.log('Exibindo mensagem de sem alternativas');
+            alternativesInfo = `
+                <div class="alternatives" style="margin-bottom: 1rem;">
+                    <h4>Alternativas:</h4>
+                    <p>${alternatives[0].description}</p>
+                </div>
+            `;
+        } else {
+            // Caso com alternativas
+            console.log('Exibindo lista de alternativas');
+            const alternativesList = alternatives.map(alt => {
+                if (alt.url) {
+                    return `<li><a href="https://e-lactancia.org${alt.url}" target="_blank" rel="noopener noreferrer" class="alternative-link">${alt.name}</a> (${alt.description})</li>`;
+                } else {
+                    return `<li>${alt.name} (${alt.description})</li>`;
+                }
+            }).join('');
+            
+            alternativesInfo = `
+                <div class="alternatives" style="margin-bottom: 1rem;">
+                    <h4>Alternativas:</h4>
+                    <ul class="alternatives-list">
+                        ${alternativesList}
+                    </ul>
+                </div>
+            `;
+        }
+    } else {
+        console.log('Nenhuma alternativa encontrada');
+    }
+    
     elements.medicationInfo.innerHTML = `
         <div class="medication-name">${translatedMedication.name}</div>
         <div class="medication-type ${typeClass}" style="margin-bottom: 1rem;">${typeText}</div>
@@ -645,6 +739,7 @@ async function showMedicationInfo(medication) {
             <h4>Recomendação:</h4>
             <p>${translatedMedication.recommendation}</p>
         </div>
+        ${alternativesInfo}
         <a href="${translatedMedication.sourceUrl}" target="_blank" rel="noopener noreferrer" class="source-link">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
@@ -736,9 +831,9 @@ function searchFromHistory(key) {
     } else {
         // Fallback para base local
         const medication = fallbackDatabase[key];
-        if (medication) {
-            elements.searchInput.value = medication.name;
-            searchMedication(key);
+    if (medication) {
+        elements.searchInput.value = medication.name;
+        searchMedication(key);
         }
     }
 }
@@ -820,9 +915,9 @@ function searchFromFavorites(key) {
     } else {
         // Fallback para base local
         const medication = fallbackDatabase[key];
-        if (medication) {
-            elements.searchInput.value = medication.name;
-            searchMedication(key);
+    if (medication) {
+        elements.searchInput.value = medication.name;
+        searchMedication(key);
         }
     }
 }
@@ -1002,12 +1097,94 @@ function parseMedicationDetails(html, termId, termType) {
         }
     }
     
+    // Buscar alternativas - dentro da box risk-alt
+    let alternatives = [];
+    
+    console.log('Buscando box de alternativas...');
+    // Tentar diferentes seletores para encontrar a box de alternativas
+    let alternativesBox = doc.querySelector('.box.grey-box.squared.risk-alt');
+    
+    if (!alternativesBox) {
+        // Tentar seletor mais genérico
+        alternativesBox = doc.querySelector('[class*="risk-alt"]');
+        console.log('Tentando seletor genérico:', alternativesBox);
+    }
+    
+    if (!alternativesBox) {
+        // Tentar buscar por texto "Alternatives"
+        const allDivs = doc.querySelectorAll('div');
+        for (let div of allDivs) {
+            if (div.textContent.includes('Alternatives') && div.querySelector('h3')) {
+                alternativesBox = div;
+                console.log('Encontrado por texto "Alternatives":', div.className);
+                break;
+            }
+        }
+    }
+    
+    if (alternativesBox) {
+        console.log('Box de alternativas encontrada:', alternativesBox.className);
+        console.log('Conteúdo da box:', alternativesBox.innerHTML.substring(0, 200) + '...');
+        
+        // Verificar se há lista de alternativas
+        const alternativesList = alternativesBox.querySelector('ul');
+        if (alternativesList) {
+            console.log('Lista de alternativas encontrada');
+            const listItems = alternativesList.querySelectorAll('li');
+            console.log('Número de itens na lista:', listItems.length);
+            
+            listItems.forEach((li, index) => {
+                console.log(`Processando item ${index + 1}:`, li.textContent.trim());
+                const link = li.querySelector('a');
+                if (link) {
+                    const name = link.textContent.trim();
+                    const href = link.getAttribute('href');
+                    const description = li.textContent.replace(name, '').trim().replace(/^[()]|[()]$/g, '').trim();
+                    
+                    console.log(`Alternativa ${index + 1}:`, { name, href, description });
+                    
+                    alternatives.push({
+                        name: name,
+                        url: href,
+                        description: description
+                    });
+                }
+            });
+            
+            console.log('Alternativas encontradas:', alternatives.length);
+        } else {
+            // Verificar se há mensagem de "não há alternativas"
+            const noAlternativesText = alternativesBox.querySelector('p');
+            if (noAlternativesText) {
+                console.log('Mensagem de "não há alternativas" encontrada');
+                const text = noAlternativesText.textContent.trim();
+                console.log('Texto da mensagem:', text);
+                alternatives.push({
+                    name: 'Nenhuma alternativa disponível',
+                    url: null,
+                    description: text
+                });
+            } else {
+                console.log('Nenhum conteúdo encontrado na box de alternativas');
+            }
+        }
+    } else {
+        console.log('Box de alternativas não encontrada');
+        // Tentar buscar por seletores alternativos
+        const altBoxes = doc.querySelectorAll('[class*="risk-alt"]');
+        console.log('Boxes com "risk-alt" encontradas:', altBoxes.length);
+        altBoxes.forEach((box, index) => {
+            console.log(`Box ${index + 1}:`, box.className, box.textContent.substring(0, 100));
+        });
+    }
+    
     const result = {
         name: medicationName,
         compatibility: compatibility,
         riskLevel: riskLevel,
         riskText: riskText,
         recommendation: recommendation,
+        alternatives: alternatives,
         sourceUrl: `${API_DETAIL_SEARCH_URL}${termId}&term_type=${termType}`
     };
     

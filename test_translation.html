@@ -85,6 +85,12 @@
             <button class="test-button" onclick="testLongText()">Testar Texto Longo</button>
             <div id="result5" class="result" style="display: none;"></div>
         </div>
+        
+        <div class="test-section">
+            <h3>Teste 6: Alternativas</h3>
+            <button class="test-button" onclick="testAlternatives()">Testar Alternativas</button>
+            <div id="result6" class="result" style="display: none;"></div>
+        </div>
     </div>
 
     <script>
@@ -339,6 +345,93 @@
                     <em>${longText.substring(0, 200)}...</em><br><br>
                     <strong>Texto traduzido:</strong><br>
                     <em>${translated.substring(0, 200)}...</em><br><br>
+                    <strong>Status:</strong> ✅ Sucesso
+                `;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Erro: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        function testAlternatives() {
+            const resultDiv = document.getElementById('result6');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '⏳ Testando exibição de alternativas...';
+            
+            try {
+                // Simular medicamento com alternativas
+                const medicationWithAlternatives = {
+                    name: "Dipiron",
+                    alternatives: [
+                        {
+                            name: "Ibuprofen",
+                            url: "/breastfeeding/ibuprofen/product/",
+                            description: "Safe product and/or breastfeeding is the best option."
+                        },
+                        {
+                            name: "Paracetamol",
+                            url: "/breastfeeding/paracetamol/product/",
+                            description: "Safe product and/or breastfeeding is the best option."
+                        }
+                    ]
+                };
+                
+                // Simular medicamento sem alternativas
+                const medicationWithoutAlternatives = {
+                    name: "Ibuprofen",
+                    alternatives: [
+                        {
+                            name: "Nenhuma alternativa disponível",
+                            url: null,
+                            description: "We do not have alternatives for Ibuprofen since it is relatively safe."
+                        }
+                    ]
+                };
+                
+                // Construir HTML das alternativas (simulando a função showMedicationInfo)
+                function buildAlternativesHTML(alternatives) {
+                    if (!alternatives || alternatives.length === 0) return '';
+                    
+                    if (alternatives.length === 1 && alternatives[0].name === 'Nenhuma alternativa disponível') {
+                        return `
+                            <div class="alternatives" style="margin-bottom: 1rem;">
+                                <h4>Alternativas:</h4>
+                                <p>${alternatives[0].description}</p>
+                            </div>
+                        `;
+                    } else {
+                        const alternativesList = alternatives.map(alt => {
+                            if (alt.url) {
+                                return `<li><a href="https://e-lactancia.org${alt.url}" target="_blank" rel="noopener noreferrer" class="alternative-link">${alt.name}</a> (${alt.description})</li>`;
+                            } else {
+                                return `<li>${alt.name} (${alt.description})</li>`;
+                            }
+                        }).join('');
+                        
+                        return `
+                            <div class="alternatives" style="margin-bottom: 1rem;">
+                                <h4>Alternativas:</h4>
+                                <ul class="alternatives-list">
+                                    ${alternativesList}
+                                </ul>
+                            </div>
+                        `;
+                    }
+                }
+                
+                const alternativesWithHTML = buildAlternativesHTML(medicationWithAlternatives.alternatives);
+                const alternativesWithoutHTML = buildAlternativesHTML(medicationWithoutAlternatives.alternatives);
+                
+                resultDiv.innerHTML = `
+                    <strong>Teste de Alternativas:</strong><br><br>
+                    
+                    <strong>1. Medicamento COM alternativas (${medicationWithAlternatives.name}):</strong><br>
+                    ${alternativesWithHTML}<br>
+                    
+                    <strong>2. Medicamento SEM alternativas (${medicationWithoutAlternatives.name}):</strong><br>
+                    ${alternativesWithoutHTML}<br>
+                    
                     <strong>Status:</strong> ✅ Sucesso
                 `;
                 resultDiv.className = 'result success';

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Alternativas</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        /* Estilos das alternativas */
+        .alternatives {
+            background: #f0f8ff;
+            border-left: 4px solid #4CAF50;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .alternatives h4 {
+            color: #2E7D32;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+        .alternatives p {
+            margin: 0;
+            font-style: italic;
+            color: #666;
+        }
+        .alternatives-list {
+            margin: 0;
+            padding-left: 1.2rem;
+            list-style: none;
+        }
+        .alternatives-list li {
+            margin-bottom: 0.5rem;
+            padding: 0.3rem 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .alternatives-list li:last-child {
+            border-bottom: none;
+        }
+        .alternative-link {
+            color: #1976D2;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+        .alternative-link:hover {
+            color: #0D47A1;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste de Alternativas</h1>
+        
+        <div class="test-section">
+            <h3>Teste 1: Medicamento COM alternativas</h3>
+            <button class="test-button" onclick="testWithAlternatives()">Testar COM alternativas</button>
+            <div id="result1" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Teste 2: Medicamento SEM alternativas</h3>
+            <button class="test-button" onclick="testWithoutAlternatives()">Testar SEM alternativas</button>
+            <div id="result2" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Teste 3: Simulação de HTML real</h3>
+            <button class="test-button" onclick="testRealHTML()">Testar HTML real</button>
+            <div id="result3" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Simular função de parsing de alternativas
+        function parseAlternativesFromHTML(html) {
+            console.log('Iniciando parsing do HTML...');
+            
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            let alternatives = [];
+            
+            console.log('Buscando box de alternativas...');
+            const alternativesBox = doc.querySelector('.box.grey-box.squared.risk-alt');
+            if (alternativesBox) {
+                console.log('Box de alternativas encontrada:', alternativesBox.className);
+                console.log('Conteúdo da box:', alternativesBox.innerHTML.substring(0, 200) + '...');
+                
+                // Verificar se há lista de alternativas
+                const alternativesList = alternativesBox.querySelector('ul');
+                if (alternativesList) {
+                    console.log('Lista de alternativas encontrada');
+                    const listItems = alternativesList.querySelectorAll('li');
+                    console.log('Número de itens na lista:', listItems.length);
+                    
+                    listItems.forEach((li, index) => {
+                        console.log(`Processando item ${index + 1}:`, li.textContent.trim());
+                        const link = li.querySelector('a');
+                        if (link) {
+                            const name = link.textContent.trim();
+                            const href = link.getAttribute('href');
+                            const description = li.textContent.replace(name, '').trim().replace(/^[()]|[()]$/g, '').trim();
+                            
+                            console.log(`Alternativa ${index + 1}:`, { name, href, description });
+                            
+                            alternatives.push({
+                                name: name,
+                                url: href,
+                                description: description
+                            });
+                        }
+                    });
+                    
+                    console.log('Alternativas encontradas:', alternatives.length);
+                } else {
+                    // Verificar se há mensagem de "não há alternativas"
+                    const noAlternativesText = alternativesBox.querySelector('p');
+                    if (noAlternativesText) {
+                        console.log('Mensagem de "não há alternativas" encontrada');
+                        const text = noAlternativesText.textContent.trim();
+                        console.log('Texto da mensagem:', text);
+                        alternatives.push({
+                            name: 'Nenhuma alternativa disponível',
+                            url: null,
+                            description: text
+                        });
+                    } else {
+                        console.log('Nenhum conteúdo encontrado na box de alternativas');
+                    }
+                }
+            } else {
+                console.log('Box de alternativas não encontrada');
+                // Tentar buscar por seletores alternativos
+                const altBoxes = doc.querySelectorAll('[class*="risk-alt"]');
+                console.log('Boxes com "risk-alt" encontradas:', altBoxes.length);
+                altBoxes.forEach((box, index) => {
+                    console.log(`Box ${index + 1}:`, box.className, box.textContent.substring(0, 100));
+                });
+            }
+            
+            return alternatives;
+        }
+
+        // Função para construir HTML das alternativas
+        function buildAlternativesHTML(alternatives) {
+            if (!alternatives || alternatives.length === 0) return '';
+            
+            if (alternatives.length === 1 && alternatives[0].name === 'Nenhuma alternativa disponível') {
+                return `
+                    <div class="alternatives" style="margin-bottom: 1rem;">
+                        <h4>Alternativas:</h4>
+                        <p>${alternatives[0].description}</p>
+                    </div>
+                `;
+            } else {
+                const alternativesList = alternatives.map(alt => {
+                    if (alt.url) {
+                        return `<li><a href="https://e-lactancia.org${alt.url}" target="_blank" rel="noopener noreferrer" class="alternative-link">${alt.name}</a> (${alt.description})</li>`;
+                    } else {
+                        return `<li>${alt.name} (${alt.description})</li>`;
+                    }
+                }).join('');
+                
+                return `
+                    <div class="alternatives" style="margin-bottom: 1rem;">
+                        <h4>Alternativas:</h4>
+                        <ul class="alternatives-list">
+                            ${alternativesList}
+                        </ul>
+                    </div>
+                `;
+            }
+        }
+
+        function testWithAlternatives() {
+            const resultDiv = document.getElementById('result1');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '⏳ Testando medicamento COM alternativas...';
+            
+            try {
+                // HTML simulado com alternativas
+                const htmlWithAlternatives = `
+                    <div class="box grey-box squared risk-alt">
+                        <h3 class="risk-header">Alternatives</h3>
+                        <ul>
+                            <li><a class="link_r0" href="/breastfeeding/ibuprofen/product/">Ibuprofen</a> (Safe product and/or breastfeeding is the best option.)</li>
+                            <li><a class="link_r0" href="/breastfeeding/paracetamol/product/">Paracetamol</a> (Safe product and/or breastfeeding is the best option.)</li>
+                        </ul>
+                    </div>
+                `;
+                
+                const alternatives = parseAlternativesFromHTML(htmlWithAlternatives);
+                const alternativesHTML = buildAlternativesHTML(alternatives);
+                
+                resultDiv.innerHTML = `
+                    <strong>Teste COM alternativas:</strong><br>
+                    <strong>Alternativas encontradas:</strong> ${alternatives.length}<br><br>
+                    <strong>HTML gerado:</strong><br>
+                    ${alternativesHTML}
+                    <br><strong>Status:</strong> ✅ Sucesso
+                `;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Erro: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        function testWithoutAlternatives() {
+            const resultDiv = document.getElementById('result2');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '⏳ Testando medicamento SEM alternativas...';
+            
+            try {
+                // HTML simulado sem alternativas
+                const htmlWithoutAlternatives = `
+                    <div class="box grey-box squared risk-alt">
+                        <h3 class="risk-header">Alternatives</h3>
+                        <p>We do not have alternatives for <strong class="risk-level0-prods">Ibuprofen</strong> since it is relatively safe.</p>
+                    </div>
+                `;
+                
+                const alternatives = parseAlternativesFromHTML(htmlWithoutAlternatives);
+                const alternativesHTML = buildAlternativesHTML(alternatives);
+                
+                resultDiv.innerHTML = `
+                    <strong>Teste SEM alternativas:</strong><br>
+                    <strong>Alternativas encontradas:</strong> ${alternatives.length}<br><br>
+                    <strong>HTML gerado:</strong><br>
+                    ${alternativesHTML}
+                    <br><strong>Status:</strong> ✅ Sucesso
+                `;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Erro: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        function testRealHTML() {
+            const resultDiv = document.getElementById('result3');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '⏳ Testando com HTML real do e-lactancia...';
+            
+            try {
+                // HTML real do e-lactancia (exemplo)
+                const realHTML = `
+                    <div class="row-margins">
+                        <div class="row iguala_altura">
+                            <div class="column col-xs-12 col-sm-12 col-md-3 no-lateral-padding" style="height: auto;">
+                                <div class="box grey-box squared risk-level2 ">
+                                    <h2 class="risk-header"><p>Limited compatibility</p></h2>
+                                    <h4 >Unsafe. Moderate/severe adverse effects. Compatible under certain circumstances. Follow-up recommended. Use safer alternative or discontinue breastfeeding from 5 to 7 T ½ . Read Commentary. </h4>
+                                </div>
+                            </div>
+                            <div class="column col-xs-12 col-sm-12 col-md-6 no-lateral-padding" style="height: auto;">
+                                <div class="box grey-box squared risk-comment-level2 ">
+                                    <p><strong>Dipiron</strong> is a tradename that contains a main active ingredient in its composition:</p>
+                                    <ul style="margin-top: 40px; margin-bottom:40px;">
+                                        <li ><a class="link_r2" href="/breastfeeding/metamizole/product/">Metamizole</a> (Unsafe. Moderate/severe adverse effects. Compatible under certain circumstances. Follow-up recommended. Use safer alternative or discontinue breastfeeding from 5 to 7 T ½ . Read Commentary.)</li>
+                                    </ul>
+                                    <strong><p>For more information (pharmacokinetics, references, ...) tap the name of the active ingredient.</p></strong>
+                                    <p><em>Note: The composition of certain tradenames varies in each country. Please, make sure this is the composition of the tradename you are looking for..</em></p>
+                                </div>
+                            </div>
+                            <div class="column col-xs-12 col-sm-12 col-md-3 no-lateral-padding" style="height: auto;">
+                                <div class="box grey-box squared risk-alt">
+                                    <h3 class="risk-header">Alternatives</h3>
+                                    <ul>
+                                        <li ><a class="link_r0" href="/breastfeeding/ibuprofen/product/" >Ibuprofen</a> (Safe product and/or breastfeeding is the best option.)</li>
+                                        <li ><a class="link_r0" href="/breastfeeding/paracetamol/product/" >Paracetamol</a> (Safe product and/or breastfeeding is the best option.)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                const alternatives = parseAlternativesFromHTML(realHTML);
+                const alternativesHTML = buildAlternativesHTML(alternatives);
+                
+                resultDiv.innerHTML = `
+                    <strong>Teste com HTML real:</strong><br>
+                    <strong>Alternativas encontradas:</strong> ${alternatives.length}<br><br>
+                    <strong>HTML gerado:</strong><br>
+                    ${alternativesHTML}
+                    <br><strong>Status:</strong> ✅ Sucesso
+                `;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Erro: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+    </script>
+</body>
+</html>

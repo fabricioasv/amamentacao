@@ -297,6 +297,55 @@ body {
     font-weight: 500;
 }
 
+/* Alternativas */
+.alternatives {
+    background: #f0f8ff;
+    border-left: 4px solid #4CAF50;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 0 8px 8px 0;
+}
+
+.alternatives h4 {
+    color: #2E7D32;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.alternatives p {
+    margin: 0;
+    font-style: italic;
+    color: #666;
+}
+
+.alternatives-list {
+    margin: 0;
+    padding-left: 1.2rem;
+    list-style: none;
+}
+
+.alternatives-list li {
+    margin-bottom: 0.5rem;
+    padding: 0.3rem 0;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.alternatives-list li:last-child {
+    border-bottom: none;
+}
+
+.alternative-link {
+    color: #1976D2;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.alternative-link:hover {
+    color: #0D47A1;
+    text-decoration: underline;
+}
+
 .risk-level {
     display: inline-block;
     padding: 0.5rem 1rem;
