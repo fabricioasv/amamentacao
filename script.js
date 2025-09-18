@@ -276,13 +276,29 @@ function setupEventListeners() {
     });
 }
 
+// Variável para controlar o debounce
+let searchTimeout;
+
 function setupAutocomplete() {
     elements.searchInput.addEventListener('input', function(e) {
         const query = e.target.value.trim();
         appState.currentSearch = query;
         
-        // Limpar sugestões quando o usuário digita
+        // Limpar timeout anterior se existir
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+        
+        // Se a query tem menos de 3 caracteres, limpar sugestões
+        if (query.length < 3) {
             hideSuggestions();
+            return;
+        }
+        
+        // Implementar debounce de 300ms para evitar muitas requisições
+        searchTimeout = setTimeout(() => {
+            searchSuggestions(query);
+        }, 300);
     });
     
     // Navegação por teclado
@@ -296,8 +312,9 @@ function setupAutocomplete() {
 
 async function searchSuggestions(query) {
     try {
-        // Buscar na API do e-lactancia.org
-        const response = await fetch(`${API_BASE_URL}${encodeURIComponent(query)}`);
+        // Buscar na API do e-lactancia.org via proxy
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://e-lactancia.org/megasearch/?query=${encodeURIComponent(query)}`)}`;
+        const response = await fetch(proxyUrl);
         
         if (!response.ok) {
             throw new Error('Erro na API');
@@ -305,22 +322,29 @@ async function searchSuggestions(query) {
         
         const data = await response.json();
         
-        // Filtrar apenas produtos (medicamentos) e limitar a 5 resultados
+        // Filtrar produtos, sinônimos e marcas relevantes e limitar a 5 resultados
         const matches = data
-            .filter(item => item.term === 'producto')
-        .slice(0, 5)
+            .filter(item => 
+                item.term === 'producto' || 
+                item.term === 'sinonimo' || 
+                item.term === 'marca' ||
+                item.term === 'escritura'
+            )
+            .slice(0, 5)
             .map(item => ({
                 id: item.id,
-                name: item.nombre || item.nombre_en,
-                key: item.id.toString()
-        }));
+                name: item.nombre_en || item.nombre_es || item.nombre || item.nombre_paises,
+                key: item.id.toString(),
+                type: item.term
+            }));
     
-    appState.suggestions = matches;
-    showSuggestions(matches);
+        appState.suggestions = matches;
+        showSuggestions(matches);
         
     } catch (error) {
         console.error('Erro ao buscar sugestões:', error);
-        showError('Erro ao buscar medicamentos. Tente novamente.');
+        // Não mostrar erro para sugestões, apenas limpar
+        hideSuggestions();
     }
 }
 
