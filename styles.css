@@ -338,12 +338,21 @@ body {
     color: #1976D2;
     text-decoration: none;
     font-weight: 500;
-    transition: color 0.3s ease;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
 }
 
 .alternative-link:hover {
     color: #0D47A1;
+    background-color: #E3F2FD;
     text-decoration: underline;
+}
+
+.alternative-link:active {
+    background-color: #BBDEFB;
+    transform: translateY(1px);
 }
 
 .risk-level {

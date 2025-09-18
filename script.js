@@ -711,7 +711,7 @@ async function showMedicationInfo(medication) {
             console.log('Exibindo lista de alternativas');
             const alternativesList = alternatives.map(alt => {
                 if (alt.url) {
-                    return `<li><a href="https://e-lactancia.org${alt.url}" target="_blank" rel="noopener noreferrer" class="alternative-link">${alt.name}</a> (${alt.description})</li>`;
+                    return `<li><a href="#" onclick="searchAlternative('${alt.name}'); return false;" class="alternative-link">${alt.name}</a> (${alt.description})</li>`;
                 } else {
                     return `<li>${alt.name} (${alt.description})</li>`;
                 }
@@ -1190,6 +1190,21 @@ function parseMedicationDetails(html, termId, termType) {
     
     console.log('Resultado do parsing:', result);
     return result;
+}
+
+// Função para buscar alternativa
+function searchAlternative(medicationName) {
+    console.log('Buscando alternativa:', medicationName);
+    
+    // Limpar campo de busca e definir o valor
+    elements.searchInput.value = medicationName;
+    
+    // Limpar sugestões e resultados anteriores
+    hideSuggestions();
+    elements.results.classList.add('hidden');
+    
+    // Fazer a busca
+    handleSearch();
 }
 
 // Funções de gerenciamento de cache
