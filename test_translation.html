@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Tradução - MyMemory API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste de Tradução - MyMemory API</h1>
+        
+        <div class="test-section">
+            <h3>Teste 1: Tradução Simples</h3>
+            <button class="test-button" onclick="testSimpleTranslation()">Testar Tradução Simples</button>
+            <div id="result1" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Teste 2: Detecção de Inglês</h3>
+            <button class="test-button" onclick="testEnglishDetection()">Testar Detecção de Inglês</button>
+            <div id="result2" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Teste 3: Tradução de Medicamento</h3>
+            <button class="test-button" onclick="testMedicationTranslation()">Testar Tradução de Medicamento</button>
+            <div id="result3" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Teste 4: API MyMemory</h3>
+            <button class="test-button" onclick="testMyMemoryAPI()">Testar API MyMemory</button>
+            <div id="result4" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Teste 5: Texto Longo (Chunks)</h3>
+            <button class="test-button" onclick="testLongText()">Testar Texto Longo</button>
+            <div id="result5" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuração da API de tradução
+        const TRANSLATE_API_URL = 'https://api.mymemory.translated.net/get';
+
+        // Função para traduzir texto usando MyMemory API
+        async function translateText(text, fromLang = 'en', toLang = 'pt') {
+            if (!text || text.trim() === '') return text;
+            
+            try {
+                // Se o texto for menor que 500 caracteres, traduzir diretamente
+                if (text.length <= 500) {
+                    const response = await fetch(
+                        `${TRANSLATE_API_URL}?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`
+                    );
+                    
+                    if (!response.ok) {
+                        throw new Error('Erro na API de tradução');
+                    }
+                    
+                    const data = await response.json();
+                    return data.responseData.translatedText || text;
+                }
+                
+                // Para textos longos, dividir em chunks de 500 caracteres
+                console.log(`Texto longo detectado (${text.length} caracteres), dividindo em chunks...`);
+                
+                const chunks = [];
+                const chunkSize = 500;
+                
+                // Dividir o texto em chunks, tentando manter palavras inteiras
+                for (let i = 0; i < text.length; i += chunkSize) {
+                    let chunk = text.substring(i, i + chunkSize);
+                    
+                    // Se não é o último chunk e não termina em espaço, tentar encontrar o último espaço
+                    if (i + chunkSize < text.length && !chunk.endsWith(' ')) {
+                        const lastSpaceIndex = chunk.lastIndexOf(' ');
+                        if (lastSpaceIndex > chunkSize * 0.7) { // Só se o espaço estiver nos últimos 30%
+                            chunk = chunk.substring(0, lastSpaceIndex);
+                            i = i - (chunkSize - lastSpaceIndex); // Ajustar o índice
+                        }
+                    }
+                    
+                    chunks.push(chunk.trim());
+                }
+                
+                console.log(`Dividido em ${chunks.length} chunks`);
+                
+                // Traduzir cada chunk
+                const translatedChunks = [];
+                for (let i = 0; i < chunks.length; i++) {
+                    const chunk = chunks[i];
+                    if (chunk.length === 0) continue;
+                    
+                    console.log(`Traduzindo chunk ${i + 1}/${chunks.length} (${chunk.length} caracteres)...`);
+                    
+                    const response = await fetch(
+                        `${TRANSLATE_API_URL}?q=${encodeURIComponent(chunk)}&langpair=${fromLang}|${toLang}`
+                    );
+                    
+                    if (!response.ok) {
+                        throw new Error(`Erro na API de tradução para chunk ${i + 1}`);
+                    }
+                    
+                    const data = await response.json();
+                    const translatedChunk = data.responseData.translatedText || chunk;
+                    translatedChunks.push(translatedChunk);
+                    
+                    // Pequena pausa entre requisições para não sobrecarregar a API
+                    if (i < chunks.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                }
+                
+                // Concatenar os chunks traduzidos
+                const result = translatedChunks.join(' ');
+                console.log(`Tradução concluída: ${result.length} caracteres`);
+                
+                return result;
+                
+            } catch (error) {
+                console.error('Erro ao traduzir:', error);
+                return text; // Retorna texto original se falhar
+            }
+        }
+
+        // Função para detectar se o texto está em inglês
+        function isEnglish(text) {
+            if (!text || text.trim() === '') return false;
+            
+            // Detecção simples baseada em palavras comuns em inglês
+            const englishWords = [
+                'the', 'and', 'or', 'of', 'in', 'to', 'for', 'with', 'by', 'safe', 
+                'compatible', 'breastfeeding', 'medication', 'product', 'unsafe', 
+                'moderate', 'severe', 'adverse', 'effects', 'recommended', 'alternative',
+                'discontinue', 'read', 'commentary', 'safe', 'best', 'option', 'likely',
+                'compatibility', 'limited', 'incompatible', 'very', 'unsafe'
+            ];
+            
+            const words = text.toLowerCase().split(/\s+/);
+            const englishWordCount = words.filter(word => englishWords.includes(word)).length;
+            return englishWordCount > 2;
+        }
+
+        // Função para traduzir informações do medicamento
+        async function translateMedicationInfo(medication) {
+            const translated = { ...medication };
+            
+            // Traduzir compatibilidade se estiver em inglês
+            if (medication.compatibility && isEnglish(medication.compatibility)) {
+                console.log('Traduzindo compatibilidade:', medication.compatibility);
+                translated.compatibility = await translateText(medication.compatibility);
+                console.log('Compatibilidade traduzida:', translated.compatibility);
+            }
+            
+            // Traduzir recomendação se estiver em inglês
+            if (medication.recommendation && isEnglish(medication.recommendation)) {
+                console.log('Traduzindo recomendação:', medication.recommendation.substring(0, 100) + '...');
+                translated.recommendation = await translateText(medication.recommendation);
+                console.log('Recomendação traduzida:', translated.recommendation.substring(0, 100) + '...');
+            }
+            
+            return translated;
+        }
+
+        // Testes
+        async function testSimpleTranslation() {
+            const resultDiv = document.getElementById('result1');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '⏳ Testando tradução simples...';
+            
+            try {
+                const text = "Safe product and/or breastfeeding is the best option.";
+                const translated = await translateText(text);
+                
+                resultDiv.innerHTML = `
+                    <strong>Texto original:</strong> ${text}<br>
+                    <strong>Traduzido:</strong> ${translated}<br>
+                    <strong>Status:</strong> ✅ Sucesso
+                `;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Erro: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        function testEnglishDetection() {
+            const resultDiv = document.getElementById('result2');
+            resultDiv.style.display = 'block';
+            
+            const tests = [
+                "Safe product and/or breastfeeding is the best option.",
+                "Produto seguro e/ou amamentação é a melhor opção.",
+                "The medication is compatible with breastfeeding.",
+                "O medicamento é compatível com a amamentação.",
+                "Unsafe. Moderate/severe adverse effects."
+            ];
+            
+            let results = '<strong>Testes de detecção de inglês:</strong><br><br>';
+            
+            tests.forEach((text, index) => {
+                const isEng = isEnglish(text);
+                results += `${index + 1}. "${text}"<br>`;
+                results += `   <strong>É inglês:</strong> ${isEng ? '✅ Sim' : '❌ Não'}<br><br>`;
+            });
+            
+            resultDiv.innerHTML = results;
+            resultDiv.className = 'result success';
+        }
+
+        async function testMedicationTranslation() {
+            const resultDiv = document.getElementById('result3');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '⏳ Testando tradução de medicamento...';
+            
+            try {
+                const medication = {
+                    name: "Ibuprofen",
+                    compatibility: "Safe product and/or breastfeeding is the best option.",
+                    recommendation: "A non-steroidal anti-inflammatory indicated in the treatment of fever, pains, rheumatoid arthritis and other rheumatic complaints. Oral, intravenous and topical administration (cutaneous or vaginal), every 6 to 8 hours.",
+                    riskLevel: "very-low",
+                    riskText: "Muito Baixo Risco"
+                };
+                
+                const translated = await translateMedicationInfo(medication);
+                
+                resultDiv.innerHTML = `
+                    <strong>Medicamento original:</strong><br>
+                    <strong>Compatibilidade:</strong> ${medication.compatibility}<br>
+                    <strong>Recomendação:</strong> ${medication.recommendation.substring(0, 100)}...<br><br>
+                    
+                    <strong>Medicamento traduzido:</strong><br>
+                    <strong>Compatibilidade:</strong> ${translated.compatibility}<br>
+                    <strong>Recomendação:</strong> ${translated.recommendation.substring(0, 100)}...<br><br>
+                    
+                    <strong>Status:</strong> ✅ Sucesso
+                `;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Erro: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testMyMemoryAPI() {
+            const resultDiv = document.getElementById('result4');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '⏳ Testando API MyMemory...';
+            
+            try {
+                const response = await fetch(`${TRANSLATE_API_URL}?q=hello&langpair=en|pt`);
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <strong>Teste da API MyMemory:</strong><br>
+                    <strong>Status da resposta:</strong> ${response.status}<br>
+                    <strong>Texto traduzido:</strong> ${data.responseData.translatedText}<br>
+                    <strong>Status:</strong> ✅ API funcionando
+                `;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Erro na API: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testLongText() {
+            const resultDiv = document.getElementById('result5');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '⏳ Testando tradução de texto longo...';
+            
+            try {
+                // Texto longo de exemplo (mais de 500 caracteres)
+                const longText = `A non-steroidal anti-inflammatory indicated in the treatment of fever, pains, rheumatoid arthritis and other rheumatic complaints. Oral, intravenous and topical administration (cutaneous or vaginal), every 6 to 8 hours. Its pharmacokinetic data (high percentage of protein binding, acidic character and short half-life) explain the tiny or zero transfer of milk observed. No problems have been observed in infants whose mothers were taking it. A medication commonly used in pediatrics. Its use is authorized from 6 months of age. The dose that an infant can receive through breastmilk is hundreds of times inferior to the therapeutic dose given to an infant. American Academy of Pediatrics: medication usually compatible with breastfeeding. List of essential WHO medications: compatible with breastfeeding. Several medical societies, experts and expert consensus consider it compatible with breastfeeding. It is regarded as the analgesic of choice for breastfeeding mothers.`;
+                
+                console.log(`Texto original: ${longText.length} caracteres`);
+                
+                const startTime = Date.now();
+                const translated = await translateText(longText);
+                const endTime = Date.now();
+                
+                const duration = endTime - startTime;
+                
+                resultDiv.innerHTML = `
+                    <strong>Teste de Texto Longo:</strong><br>
+                    <strong>Caracteres originais:</strong> ${longText.length}<br>
+                    <strong>Caracteres traduzidos:</strong> ${translated.length}<br>
+                    <strong>Tempo de tradução:</strong> ${duration}ms<br>
+                    <strong>Texto original:</strong><br>
+                    <em>${longText.substring(0, 200)}...</em><br><br>
+                    <strong>Texto traduzido:</strong><br>
+                    <em>${translated.substring(0, 200)}...</em><br><br>
+                    <strong>Status:</strong> ✅ Sucesso
+                `;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Erro: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -29,6 +29,127 @@ const elements = {
 // Configuração da API
 const API_DETAIL_URL = 'https://e-lactancia.org/breastfeeding/';
 const API_DETAIL_SEARCH_URL = 'https://e-lactancia.org/buscar/?term_id=';
+const TRANSLATE_API_URL = 'https://api.mymemory.translated.net/get';
+
+// Função para traduzir texto usando MyMemory API
+async function translateText(text, fromLang = 'en', toLang = 'pt') {
+    if (!text || text.trim() === '') return text;
+    
+    try {
+        // Se o texto for menor que 500 caracteres, traduzir diretamente
+        if (text.length <= 500) {
+            const response = await fetch(
+                `${TRANSLATE_API_URL}?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`
+            );
+            
+            if (!response.ok) {
+                throw new Error('Erro na API de tradução');
+            }
+            
+            const data = await response.json();
+            return data.responseData.translatedText || text;
+        }
+        
+        // Para textos longos, dividir em chunks de 500 caracteres
+        console.log(`Texto longo detectado (${text.length} caracteres), dividindo em chunks...`);
+        
+        const chunks = [];
+        const chunkSize = 500;
+        
+        // Dividir o texto em chunks, tentando manter palavras inteiras
+        for (let i = 0; i < text.length; i += chunkSize) {
+            let chunk = text.substring(i, i + chunkSize);
+            
+            // Se não é o último chunk e não termina em espaço, tentar encontrar o último espaço
+            if (i + chunkSize < text.length && !chunk.endsWith(' ')) {
+                const lastSpaceIndex = chunk.lastIndexOf(' ');
+                if (lastSpaceIndex > chunkSize * 0.7) { // Só se o espaço estiver nos últimos 30%
+                    chunk = chunk.substring(0, lastSpaceIndex);
+                    i = i - (chunkSize - lastSpaceIndex); // Ajustar o índice
+                }
+            }
+            
+            chunks.push(chunk.trim());
+        }
+        
+        console.log(`Dividido em ${chunks.length} chunks`);
+        
+        // Traduzir cada chunk
+        const translatedChunks = [];
+        for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
+            if (chunk.length === 0) continue;
+            
+            console.log(`Traduzindo chunk ${i + 1}/${chunks.length} (${chunk.length} caracteres)...`);
+            
+            const response = await fetch(
+                `${TRANSLATE_API_URL}?q=${encodeURIComponent(chunk)}&langpair=${fromLang}|${toLang}`
+            );
+            
+            if (!response.ok) {
+                throw new Error(`Erro na API de tradução para chunk ${i + 1}`);
+            }
+            
+            const data = await response.json();
+            const translatedChunk = data.responseData.translatedText || chunk;
+            translatedChunks.push(translatedChunk);
+            
+            // Pequena pausa entre requisições para não sobrecarregar a API
+            if (i < chunks.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+        
+        // Concatenar os chunks traduzidos
+        const result = translatedChunks.join(' ');
+        console.log(`Tradução concluída: ${result.length} caracteres`);
+        
+        return result;
+        
+    } catch (error) {
+        console.error('Erro ao traduzir:', error);
+        return text; // Retorna texto original se falhar
+    }
+}
+
+// Função para detectar se o texto está em inglês
+function isEnglish(text) {
+    if (!text || text.trim() === '') return false;
+    
+    // Detecção simples baseada em palavras comuns em inglês
+    const englishWords = [
+        'the', 'and', 'or', 'of', 'in', 'to', 'for', 'with', 'by', 'safe', 
+        'compatible', 'breastfeeding', 'medication', 'product', 'unsafe', 
+        'moderate', 'severe', 'adverse', 'effects', 'recommended', 'alternative',
+        'discontinue', 'read', 'commentary', 'safe', 'best', 'option', 'likely',
+        'compatibility', 'limited', 'incompatible', 'very', 'unsafe'
+    ];
+    
+    const words = text.toLowerCase().split(/\s+/);
+    const englishWordCount = words.filter(word => englishWords.includes(word)).length;
+    return englishWordCount > 2;
+}
+
+// Função para traduzir informações do medicamento
+async function translateMedicationInfo(medication) {
+    const translated = { ...medication };
+    
+    // Traduzir compatibilidade se estiver em inglês
+    if (medication.compatibility && isEnglish(medication.compatibility)) {
+        console.log('Traduzindo compatibilidade:', medication.compatibility);
+        translated.compatibility = await translateText(medication.compatibility);
+        console.log('Compatibilidade traduzida:', translated.compatibility);
+    }
+    
+    // Traduzir recomendação se estiver em inglês
+    if (medication.recommendation && isEnglish(medication.recommendation)) {
+        console.log('Traduzindo recomendação:', medication.recommendation.substring(0, 100) + '...');
+        translated.recommendation = await translateText(medication.recommendation);
+        console.log('Recomendação traduzida:', translated.recommendation.substring(0, 100) + '...');
+    }
+    
+    return translated;
+}
 
 // Cache local para medicamentos já consultados
 const medicationCache = new Map();
@@ -387,7 +508,7 @@ async function searchMedicationById(medicationId, termType) {
         addToHistory(medication.name, key);
         
         // Mostrar resultados
-        showMedicationInfo(medication);
+        await showMedicationInfo(medication);
         
     } catch (error) {
         console.error('Erro ao buscar medicamento:', error);
@@ -464,7 +585,7 @@ async function searchMedication(key) {
         addToHistory(medication.name, key);
         
         // Mostrar resultados
-        showMedicationInfo(medication);
+        await showMedicationInfo(medication);
         
     } catch (error) {
         console.error('Erro ao buscar medicamento:', error);
@@ -474,15 +595,18 @@ async function searchMedication(key) {
     hideLoading();
 }
 
-function showMedicationInfo(medication) {
-    const riskClass = `risk-${medication.riskLevel}`;
+async function showMedicationInfo(medication) {
+    // Traduzir informações se necessário
+    const translatedMedication = await translateMedicationInfo(medication);
+    
+    const riskClass = `risk-${translatedMedication.riskLevel}`;
     
     // Definir tipo e cor baseado no term
     let typeText = 'Medicamento';
     let typeClass = 'suggestion-type-producto';
     
-    if (medication.type) {
-        switch(medication.type) {
+    if (translatedMedication.type) {
+        switch(translatedMedication.type) {
             case 'producto':
                 typeText = 'Medicamento';
                 typeClass = 'suggestion-type-producto';
@@ -503,25 +627,25 @@ function showMedicationInfo(medication) {
     }
     
     let compatibilityInfo = '';
-    if (medication.compatibility) {
+    if (translatedMedication.compatibility) {
         compatibilityInfo = `
             <div class="compatibility-info" style="margin-bottom: 1rem;">
                 <h4>Compatibilidade:</h4>
-                <p><strong>${medication.compatibility}</strong></p>
+                <p><strong>${translatedMedication.compatibility}</strong></p>
             </div>
         `;
     }
     
     elements.medicationInfo.innerHTML = `
-        <div class="medication-name">${medication.name}</div>
+        <div class="medication-name">${translatedMedication.name}</div>
         <div class="medication-type ${typeClass}" style="margin-bottom: 1rem;">${typeText}</div>
-        <div class="risk-level ${riskClass}">${medication.riskText}</div>
+        <div class="risk-level ${riskClass}">${translatedMedication.riskText}</div>
         ${compatibilityInfo}
         <div class="recommendation">
             <h4>Recomendação:</h4>
-            <p>${medication.recommendation}</p>
+            <p>${translatedMedication.recommendation}</p>
         </div>
-        <a href="${medication.sourceUrl}" target="_blank" rel="noopener noreferrer" class="source-link">
+        <a href="${translatedMedication.sourceUrl}" target="_blank" rel="noopener noreferrer" class="source-link">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                 <polyline points="15,3 21,3 21,9"></polyline>
@@ -530,7 +654,7 @@ function showMedicationInfo(medication) {
             Ver fonte original no e-lactancia.org
         </a>
         <div class="medication-actions" style="margin-top: 1rem;">
-            <button class="btn btn-primary" onclick="addToFavorites('${medication.name}', '${medication.key || 'unknown'}')">
+            <button class="btn btn-primary" onclick="addToFavorites('${translatedMedication.name}', '${translatedMedication.key || 'unknown'}')">
                 ⭐ Adicionar aos Favoritos
             </button>
         </div>
