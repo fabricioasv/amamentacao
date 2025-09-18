@@ -1,6 +1,5 @@
 // Estado da aplicação
 const appState = {
-    favorites: JSON.parse(localStorage.getItem('medicationFavorites') || '[]'),
     currentSearch: '',
     suggestions: [],
     selectedSuggestionIndex: -1,
@@ -14,9 +13,7 @@ const elements = {
     suggestions: document.getElementById('suggestions'),
     loading: document.getElementById('loading'),
     results: document.getElementById('results'),
-    medicationInfo: document.getElementById('medicationInfo'),
-    favorites: document.getElementById('favorites'),
-    favoritesList: document.getElementById('favoritesList')
+    medicationInfo: document.getElementById('medicationInfo')
 };
 
 // Configuração da API
@@ -222,17 +219,11 @@ const fallbackDatabase = {
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
     setupEventListeners();
-    loadFavorites();
 });
 
 function initializeApp() {
     // Configurar autocompletar
     setupAutocomplete();
-    
-    // Mostrar favoritos se existirem
-    if (appState.favorites.length > 0) {
-        showFavorites();
-    }
 }
 
 function setupEventListeners() {
@@ -743,11 +734,6 @@ async function showMedicationInfo(medication) {
             </svg>
             Ver fonte original no e-lactancia.org
         </a>
-        <div class="medication-actions" style="margin-top: 1rem;">
-            <button class="btn btn-primary" onclick="addToFavorites('${translatedMedication.name}', '${translatedMedication.key || 'unknown'}')">
-                ⭐ Adicionar aos Favoritos
-            </button>
-        </div>
     `;
     
     elements.results.classList.remove('hidden');
@@ -775,81 +761,6 @@ function showError(message) {
 }
 
 
-// Favoritos
-function addToFavorites(name, key) {
-    const existingIndex = appState.favorites.findIndex(item => item.key === key);
-    
-    if (existingIndex >= 0) {
-        alert('Este medicamento já está nos favoritos!');
-        return;
-    }
-    
-    appState.favorites.unshift({ name, key, timestamp: Date.now() });
-    localStorage.setItem('medicationFavorites', JSON.stringify(appState.favorites));
-    loadFavorites();
-    
-    // Feedback visual
-    const button = event.target;
-    const originalText = button.textContent;
-    button.textContent = '✅ Adicionado!';
-    button.disabled = true;
-    
-    setTimeout(() => {
-        button.textContent = originalText;
-        button.disabled = false;
-    }, 2000);
-}
-
-function loadFavorites() {
-    if (appState.favorites.length === 0) return;
-    
-    elements.favoritesList.innerHTML = '';
-    
-    appState.favorites.forEach(item => {
-        const favoriteItem = document.createElement('div');
-        favoriteItem.className = 'favorite-item';
-        favoriteItem.innerHTML = `
-            <span class="item-name">${item.name}</span>
-            <div class="item-actions">
-                <button class="btn btn-primary" onclick="searchFromFavorites('${item.key}')">Buscar</button>
-                <button class="btn btn-danger" onclick="removeFromFavorites('${item.key}')">Remover</button>
-            </div>
-        `;
-        elements.favoritesList.appendChild(favoriteItem);
-    });
-    
-    showFavorites();
-}
-
-function showFavorites() {
-    elements.favorites.classList.remove('hidden');
-}
-
-function searchFromFavorites(key) {
-    // Verificar cache primeiro
-    if (medicationCache.has(key)) {
-        const medication = medicationCache.get(key);
-        elements.searchInput.value = medication.name;
-        searchMedication(key);
-    } else {
-        // Fallback para base local
-        const medication = fallbackDatabase[key];
-    if (medication) {
-        elements.searchInput.value = medication.name;
-        searchMedication(key);
-        }
-    }
-}
-
-function removeFromFavorites(key) {
-    appState.favorites = appState.favorites.filter(item => item.key !== key);
-    localStorage.setItem('medicationFavorites', JSON.stringify(appState.favorites));
-    loadFavorites();
-    
-    if (appState.favorites.length === 0) {
-        elements.favorites.classList.add('hidden');
-    }
-}
 
 // Função para buscar detalhes do medicamento
 async function fetchMedicationDetails(termId, termType) {
