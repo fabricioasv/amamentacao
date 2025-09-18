@@ -28,6 +28,7 @@ const elements = {
 
 // Configuração da API
 const API_DETAIL_URL = 'https://e-lactancia.org/breastfeeding/';
+const API_DETAIL_SEARCH_URL = 'https://e-lactancia.org/buscar/?term_id=';
 
 // Cache local para medicamentos já consultados
 const medicationCache = new Map();
@@ -370,7 +371,8 @@ function selectSuggestion(key) {
     if (suggestion) {
         elements.searchInput.value = suggestion.name;
         hideSuggestions();
-        searchMedication(key);
+        // Usar o ID da sugestão diretamente
+        searchMedicationById(suggestion.id, suggestion.type);
     }
 }
 
@@ -417,6 +419,62 @@ async function handleSearch() {
     }
 }
 
+async function searchMedicationById(medicationId, termType) {
+    showLoading();
+    hideSuggestions();
+    
+    try {
+        const key = medicationId.toString();
+        let medication;
+        
+        // Verificar cache primeiro
+        if (medicationCache.has(key)) {
+            medication = medicationCache.get(key);
+        } else {
+            // Buscar detalhes completos do medicamento
+            const details = await fetchMedicationDetails(medicationId, termType);
+            
+            if (details) {
+                medication = {
+                    name: details.name,
+                    riskLevel: details.riskLevel,
+                    riskText: details.riskText,
+                    recommendation: details.recommendation,
+                    sourceUrl: details.sourceUrl,
+                    type: termType,
+                    compatibility: details.compatibility
+                };
+            } else {
+                // Fallback se não conseguir buscar detalhes
+                medication = {
+                    name: 'Medicamento',
+                    riskLevel: 'unknown',
+                    riskText: 'Informação não disponível',
+                    recommendation: 'Para informações detalhadas sobre a compatibilidade com a amamentação, consulte a fonte original.',
+                    sourceUrl: `${API_DETAIL_SEARCH_URL}${medicationId}&term_type=${termType}`,
+                    type: termType
+                };
+            }
+            
+            // Salvar no cache
+            medicationCache.set(key, medication);
+            updateCacheButton();
+        }
+        
+        // Adicionar ao histórico
+        addToHistory(medication.name, key);
+        
+        // Mostrar resultados
+        showMedicationInfo(medication);
+        
+    } catch (error) {
+        console.error('Erro ao buscar medicamento:', error);
+        showError('Erro ao buscar informações do medicamento. Tente novamente.');
+    }
+    
+    hideLoading();
+}
+
 async function searchMedication(key) {
     showLoading();
     hideSuggestions();
@@ -443,16 +501,30 @@ async function searchMedication(key) {
             );
             
             if (apiMedication) {
-                // Para medicamentos da API, criar um objeto básico
-                // Nota: A API de busca não retorna informações detalhadas de risco
-                medication = {
-                    name: apiMedication.nombre_en || apiMedication.nombre_es || apiMedication.nombre || apiMedication.nombre_paises,
-                    riskLevel: 'unknown',
-                    riskText: 'Informação não disponível',
-                    recommendation: 'Para informações detalhadas sobre a compatibilidade com a amamentação, consulte a fonte original.',
-                    sourceUrl: `${API_DETAIL_URL}${(apiMedication.nombre_en || apiMedication.nombre_es || apiMedication.nombre || apiMedication.nombre_paises)?.toLowerCase().replace(/\s+/g, '-')}/product/`,
-                    type: apiMedication.term
-                };
+                // Buscar detalhes completos do medicamento
+                const details = await fetchMedicationDetails(apiMedication.id, apiMedication.term);
+                
+                if (details) {
+                    medication = {
+                        name: details.name,
+                        riskLevel: details.riskLevel,
+                        riskText: details.riskText,
+                        recommendation: details.recommendation,
+                        sourceUrl: details.sourceUrl,
+                        type: apiMedication.term,
+                        compatibility: details.compatibility
+                    };
+                } else {
+                    // Fallback se não conseguir buscar detalhes
+                    medication = {
+                        name: apiMedication.nombre_en || apiMedication.nombre_es || apiMedication.nombre || apiMedication.nombre_paises,
+                        riskLevel: 'unknown',
+                        riskText: 'Informação não disponível',
+                        recommendation: 'Para informações detalhadas sobre a compatibilidade com a amamentação, consulte a fonte original.',
+                        sourceUrl: `${API_DETAIL_SEARCH_URL}${apiMedication.id}&term_type=${apiMedication.term}`,
+                        type: apiMedication.term
+                    };
+                }
                 
                 // Salvar no cache
                 medicationCache.set(key, medication);
@@ -508,10 +580,21 @@ function showMedicationInfo(medication) {
         }
     }
     
+    let compatibilityInfo = '';
+    if (medication.compatibility) {
+        compatibilityInfo = `
+            <div class="compatibility-info" style="margin-bottom: 1rem;">
+                <h4>Compatibilidade:</h4>
+                <p><strong>${medication.compatibility}</strong></p>
+            </div>
+        `;
+    }
+    
     elements.medicationInfo.innerHTML = `
         <div class="medication-name">${medication.name}</div>
         <div class="medication-type ${typeClass}" style="margin-bottom: 1rem;">${typeText}</div>
         <div class="risk-level ${riskClass}">${medication.riskText}</div>
+        ${compatibilityInfo}
         <div class="recommendation">
             <h4>Recomendação:</h4>
             <p>${medication.recommendation}</p>
@@ -706,6 +789,184 @@ function removeFromFavorites(key) {
     if (appState.favorites.length === 0) {
         elements.favorites.classList.add('hidden');
     }
+}
+
+// Função para buscar detalhes do medicamento
+async function fetchMedicationDetails(termId, termType) {
+    try {
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`${API_DETAIL_SEARCH_URL}${termId}&term_type=${termType}`)}`;
+        console.log('Buscando detalhes para:', termId, termType);
+        console.log('URL:', proxyUrl);
+        
+        const response = await fetch(proxyUrl);
+        
+        if (!response.ok) {
+            throw new Error('Erro ao buscar detalhes');
+        }
+        
+        const html = await response.text();
+        console.log('HTML recebido:', html.substring(0, 500) + '...');
+        return parseMedicationDetails(html, termId, termType);
+        
+    } catch (error) {
+        console.error('Erro ao buscar detalhes do medicamento:', error);
+        return null;
+    }
+}
+
+function parseMedicationDetails(html, termId, termType) {
+    console.log('Iniciando parsing do HTML...');
+    
+    // Criar um elemento temporário para parsear o HTML
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    // Buscar o nome do medicamento - tentar diferentes seletores
+    let medicationName = 'Medicamento';
+    
+    // Tentar buscar por h1 primeiro (como no exemplo do Dipiron)
+    const h1Element = doc.querySelector('h1.term-header');
+    if (h1Element) {
+        medicationName = h1Element.textContent.trim();
+        console.log('Nome encontrado via h1.term-header:', medicationName);
+    } else {
+        // Fallback para h1 genérico
+        const h1Generic = doc.querySelector('h1');
+        if (h1Generic) {
+            medicationName = h1Generic.textContent.trim();
+            console.log('Nome encontrado via h1 genérico:', medicationName);
+        } else {
+            // Tentar buscar após "small last-update"
+            const lastUpdateElement = doc.querySelector('.small.last-update');
+            if (lastUpdateElement) {
+                const nextElement = lastUpdateElement.nextElementSibling;
+                if (nextElement) {
+                    medicationName = nextElement.textContent.trim();
+                    console.log('Nome encontrado via last-update:', medicationName);
+                }
+            }
+        }
+    }
+    
+    // Buscar informações de compatibilidade - dentro da box risk-level
+    let compatibility = 'Informação não disponível';
+    let riskLevel = 'unknown';
+    let riskText = 'Informação não disponível';
+    
+    // Buscar por box com classe que contém "risk-level" (mais flexível)
+    const riskBox = doc.querySelector('.box.grey-box.squared[class*="risk-level"]');
+    if (riskBox) {
+        console.log('Box de risco encontrada:', riskBox.className);
+        
+        // Buscar h4 dentro da box de risco
+        const h4Element = riskBox.querySelector('h4');
+        if (h4Element) {
+            compatibility = h4Element.textContent.trim();
+            console.log('Compatibilidade encontrada via h4:', compatibility);
+        }
+        
+        // Determinar nível de risco baseado na classe CSS
+        const classList = Array.from(riskBox.classList);
+        const riskClass = classList.find(cls => cls.startsWith('risk-level'));
+        
+        if (riskClass) {
+            const riskNumber = riskClass.replace('risk-level', '');
+            switch(riskNumber) {
+                case '0':
+                    riskLevel = 'very-low';
+                    riskText = 'Muito Baixo Risco';
+                    break;
+                case '1':
+                    riskLevel = 'low';
+                    riskText = 'Baixo Risco';
+                    break;
+                case '2':
+                    riskLevel = 'moderate';
+                    riskText = 'Risco Moderado';
+                    break;
+                case '3':
+                    riskLevel = 'high';
+                    riskText = 'Alto Risco';
+                    break;
+                default:
+                    riskLevel = 'unknown';
+                    riskText = 'Informação não disponível';
+            }
+            console.log('Nível de risco detectado:', riskNumber, '->', riskText);
+        }
+    } else {
+        console.log('Box de risco não encontrada, tentando seletores alternativos...');
+        
+        // Fallback: buscar por qualquer div com risk-level
+        const fallbackRiskBox = doc.querySelector('[class*="risk-level"]');
+        if (fallbackRiskBox) {
+            console.log('Box de risco encontrada via fallback:', fallbackRiskBox.className);
+            
+            const h4Element = fallbackRiskBox.querySelector('h4');
+            if (h4Element) {
+                compatibility = h4Element.textContent.trim();
+                console.log('Compatibilidade encontrada via fallback h4:', compatibility);
+            }
+        }
+    }
+    
+    // Buscar descrição/recomendação - dentro da box risk-comment-level
+    let recommendation = 'Para informações detalhadas sobre a compatibilidade com a amamentação, consulte a fonte original.';
+    
+    // Buscar por box com classe que contém "risk-comment-level" (mais flexível)
+    const commentBox = doc.querySelector('.box.grey-box.squared[class*="risk-comment-level"]');
+    if (commentBox) {
+        console.log('Box de comentários encontrada:', commentBox.className);
+        
+        // Buscar todos os parágrafos dentro da box de comentários
+        const paragraphs = commentBox.querySelectorAll('p');
+        if (paragraphs.length > 0) {
+            // Concatenar todos os parágrafos
+            const allTexts = Array.from(paragraphs).map(p => p.textContent.trim()).filter(text => text.length > 0);
+            recommendation = allTexts.join('\n\n');
+            console.log('Recomendação encontrada via risk-comment-level:', recommendation.substring(0, 200) + '...');
+            console.log('Número de parágrafos encontrados:', paragraphs.length);
+        }
+    } else {
+        console.log('Box de comentários não encontrada, tentando seletores alternativos...');
+        
+        // Fallback: buscar por qualquer div com risk-comment-level
+        const fallbackCommentBox = doc.querySelector('[class*="risk-comment-level"]');
+        if (fallbackCommentBox) {
+            console.log('Box de comentários encontrada via fallback:', fallbackCommentBox.className);
+            
+            const paragraphs = fallbackCommentBox.querySelectorAll('p');
+            if (paragraphs.length > 0) {
+                const allTexts = Array.from(paragraphs).map(p => p.textContent.trim()).filter(text => text.length > 0);
+                recommendation = allTexts.join('\n\n');
+                console.log('Recomendação encontrada via fallback:', recommendation.substring(0, 200) + '...');
+                console.log('Número de parágrafos encontrados via fallback:', paragraphs.length);
+            }
+        } else {
+            // Fallback final para busca genérica
+            const paragraphs = doc.querySelectorAll('p');
+            for (let p of paragraphs) {
+                const text = p.textContent.trim();
+                if (text.length > 50 && (text.toLowerCase().includes('lactancia') || text.toLowerCase().includes('leche') || text.toLowerCase().includes('breastfeeding'))) {
+                    recommendation = text;
+                    console.log('Recomendação encontrada via parágrafo genérico:', text.substring(0, 100) + '...');
+                    break;
+                }
+            }
+        }
+    }
+    
+    const result = {
+        name: medicationName,
+        compatibility: compatibility,
+        riskLevel: riskLevel,
+        riskText: riskText,
+        recommendation: recommendation,
+        sourceUrl: `${API_DETAIL_SEARCH_URL}${termId}&term_type=${termType}`
+    };
+    
+    console.log('Resultado do parsing:', result);
+    return result;
 }
 
 // Funções de gerenciamento de cache
