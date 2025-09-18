@@ -4,7 +4,8 @@ const appState = {
     favorites: JSON.parse(localStorage.getItem('medicationFavorites') || '[]'),
     currentSearch: '',
     suggestions: [],
-    selectedSuggestionIndex: -1
+    selectedSuggestionIndex: -1,
+    isSearching: false
 };
 
 // Elementos DOM
@@ -19,11 +20,20 @@ const elements = {
     historyList: document.getElementById('historyList'),
     clearHistory: document.getElementById('clearHistory'),
     favorites: document.getElementById('favorites'),
-    favoritesList: document.getElementById('favoritesList')
+    favoritesList: document.getElementById('favoritesList'),
+    clearCache: document.getElementById('clearCache'),
+    showCache: document.getElementById('showCache'),
+    refreshSuggestions: document.getElementById('refreshSuggestions')
 };
 
-// Base de dados simulada de medicamentos (em produção, seria uma API real)
-const medicationDatabase = {
+// Configuração da API
+const API_DETAIL_URL = 'https://e-lactancia.org/breastfeeding/';
+
+// Cache local para medicamentos já consultados
+const medicationCache = new Map();
+
+// Base de dados de fallback para medicamentos comuns (caso a API falhe)
+const fallbackDatabase = {
     'paracetamol': {
         name: 'Paracetamol',
         riskLevel: 'very-low',
@@ -44,55 +54,6 @@ const medicationDatabase = {
         riskText: 'Risco Moderado',
         recommendation: 'Dipirona deve ser usada com cautela. Pode causar agranulocitose rara mas grave. Use apenas sob orientação médica e por curto período.',
         sourceUrl: 'https://e-lactancia.org/breastfeeding/metamizole/product/'
-    },
-    'aspirina': {
-        name: 'Aspirina (Ácido Acetilsalicílico)',
-        riskLevel: 'moderate',
-        riskText: 'Risco Moderado',
-        recommendation: 'Aspirina em doses baixas é relativamente segura, mas doses altas podem causar síndrome de Reye no bebê. Evite uso prolongado.',
-        sourceUrl: 'https://e-lactancia.org/breastfeeding/acetylsalicylic-acid/product/'
-    },
-    'codeína': {
-        name: 'Codeína',
-        riskLevel: 'high',
-        riskText: 'Alto Risco',
-        recommendation: 'Codeína deve ser evitada durante a amamentação. Pode causar depressão respiratória grave no bebê. Use alternativas mais seguras.',
-        sourceUrl: 'https://e-lactancia.org/breastfeeding/codeine/product/'
-    },
-    'morfina': {
-        name: 'Morfina',
-        riskLevel: 'moderate',
-        riskText: 'Risco Moderado',
-        recommendation: 'Morfina pode ser usada com cautela para dor severa. Monitore o bebê para sinais de sedação. Use a menor dose eficaz.',
-        sourceUrl: 'https://e-lactancia.org/breastfeeding/morphine/product/'
-    },
-    'amoxicilina': {
-        name: 'Amoxicilina',
-        riskLevel: 'very-low',
-        riskText: 'Muito Baixo Risco',
-        recommendation: 'Amoxicilina é segura durante a amamentação. É um dos antibióticos de primeira escolha para infecções bacterianas.',
-        sourceUrl: 'https://e-lactancia.org/breastfeeding/amoxicillin/product/'
-    },
-    'azitromicina': {
-        name: 'Azitromicina',
-        riskLevel: 'low',
-        riskText: 'Baixo Risco',
-        recommendation: 'Azitromicina é considerada segura. Baixa concentração no leite materno. Pode ser usada para infecções respiratórias.',
-        sourceUrl: 'https://e-lactancia.org/breastfeeding/azithromycin/product/'
-    },
-    'cetirizina': {
-        name: 'Cetirizina',
-        riskLevel: 'low',
-        riskText: 'Baixo Risco',
-        recommendation: 'Cetirizina é segura para uso ocasional. Pode causar sonolência leve no bebê. Monitore o comportamento do bebê.',
-        sourceUrl: 'https://e-lactancia.org/breastfeeding/cetirizine/product/'
-    },
-    'loratadina': {
-        name: 'Loratadina',
-        riskLevel: 'very-low',
-        riskText: 'Muito Baixo Risco',
-        recommendation: 'Loratadina é segura durante a amamentação. Não causa sonolência significativa. Boa opção para alergias.',
-        sourceUrl: 'https://e-lactancia.org/breastfeeding/loratadine/product/'
     }
 };
 
@@ -107,6 +68,9 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeApp() {
     // Configurar autocompletar
     setupAutocomplete();
+    
+    // Atualizar botão de cache
+    updateCacheButton();
     
     // Mostrar histórico se existir
     if (appState.searchHistory.length > 0) {
@@ -131,6 +95,11 @@ function setupEventListeners() {
     // Histórico
     elements.clearHistory.addEventListener('click', clearHistory);
     
+    // Cache controls
+    elements.clearCache.addEventListener('click', clearCache);
+    elements.showCache.addEventListener('click', showCache);
+    elements.refreshSuggestions.addEventListener('click', refreshSuggestions);
+    
     // Fechar sugestões ao clicar fora
     document.addEventListener('click', function(e) {
         const searchContainer = document.querySelector('.search-container');
@@ -142,7 +111,7 @@ function setupEventListeners() {
 
 function setupAutocomplete() {
     elements.searchInput.addEventListener('input', function(e) {
-        const query = e.target.value.toLowerCase().trim();
+        const query = e.target.value.trim();
         appState.currentSearch = query;
         
         if (query.length < 2) {
@@ -150,11 +119,15 @@ function setupAutocomplete() {
             return;
         }
         
-        // Simular busca com delay para melhor UX
-        clearTimeout(window.searchTimeout);
+        // Cancelar busca anterior se ainda estiver pendente
+        if (window.searchTimeout) {
+            clearTimeout(window.searchTimeout);
+        }
+        
+        // Fazer busca dinâmica com delay para evitar muitas chamadas
         window.searchTimeout = setTimeout(() => {
-            searchSuggestions(query);
-        }, 300);
+            searchSuggestionsDynamic(query);
+        }, 200); // Reduzido para 200ms para resposta mais rápida
     });
     
     // Navegação por teclado
@@ -165,21 +138,120 @@ function setupAutocomplete() {
     });
 }
 
-function searchSuggestions(query) {
-    const matches = Object.keys(medicationDatabase)
+async function searchSuggestionsDynamic(query) {
+    // Evitar múltiplas buscas simultâneas
+    if (appState.isSearching) {
+        return;
+    }
+    
+    appState.isSearching = true;
+    
+    try {
+        // Mostrar indicador de carregamento nas sugestões
+        showSuggestionsLoading();
+        
+        // Buscar na API do e-lactancia.org via proxy
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://e-lactancia.org/megasearch/?query=${encodeURIComponent(query)}`)}`;
+        const response = await fetch(proxyUrl);
+        
+        if (!response.ok) {
+            throw new Error('Erro na API');
+        }
+        
+        const data = await response.json();
+        
+        console.log('API Response for "dipi":', data.length, 'total items');
+        console.log('First 3 items:', data.slice(0, 3));
+        
+        // Filtrar produtos, sinônimos e marcas relevantes
+        const matches = data
+            .filter(item => 
+                item.term === 'producto' || 
+                item.term === 'sinonimo' || 
+                item.term === 'marca' ||
+                item.term === 'escritura'
+            )
+            .slice(0, 20) // Aumentado para 20 resultados
+            .map(item => ({
+                id: item.id,
+                name: item.nombre_en || item.nombre_es || item.nombre || item.nombre_paises,
+                key: item.id.toString(),
+                type: item.term
+            }));
+        
+        console.log('Filtered matches:', matches.length);
+        console.log('First 5 matches:', matches.slice(0, 5));
+        
+        
+        appState.suggestions = matches;
+        showSuggestions(matches);
+        
+    } catch (error) {
+        console.error('Erro ao buscar sugestões:', error);
+        // Fallback para busca local se a API falhar
+        searchSuggestionsFallback(query);
+    } finally {
+        appState.isSearching = false;
+    }
+}
+
+async function searchSuggestions(query) {
+    try {
+        // Buscar na API do e-lactancia.org
+        const response = await fetch(`${API_BASE_URL}${encodeURIComponent(query)}`);
+        
+        if (!response.ok) {
+            throw new Error('Erro na API');
+        }
+        
+        const data = await response.json();
+        
+        // Filtrar apenas produtos (medicamentos) e limitar a 5 resultados
+        const matches = data
+            .filter(item => item.term === 'producto')
+            .slice(0, 5)
+            .map(item => ({
+                id: item.id,
+                name: item.nombre || item.nombre_en,
+                key: item.id.toString()
+            }));
+        
+        appState.suggestions = matches;
+        showSuggestions(matches);
+        
+    } catch (error) {
+        console.error('Erro ao buscar sugestões:', error);
+        // Fallback para busca local se a API falhar
+        searchSuggestionsFallback(query);
+    }
+}
+
+function searchSuggestionsFallback(query) {
+    const matches = Object.keys(fallbackDatabase)
         .filter(key => 
-            medicationDatabase[key].name.toLowerCase().includes(query) ||
-            key.includes(query)
+            fallbackDatabase[key].name.toLowerCase().includes(query.toLowerCase()) ||
+            key.includes(query.toLowerCase())
         )
         .slice(0, 5)
         .map(key => ({
             key,
-            name: medicationDatabase[key].name,
-            riskLevel: medicationDatabase[key].riskLevel
+            name: fallbackDatabase[key].name,
+            id: key
         }));
     
     appState.suggestions = matches;
     showSuggestions(matches);
+}
+
+function showSuggestionsLoading() {
+    elements.suggestions.innerHTML = `
+        <div class="suggestion-loading">
+            <div class="spinner-small"></div>
+            <span>Buscando medicamentos...</span>
+        </div>
+    `;
+    elements.suggestions.style.display = 'block';
+    elements.suggestions.classList.remove('hidden');
 }
 
 function showSuggestions(suggestions) {
@@ -191,10 +263,48 @@ function showSuggestions(suggestions) {
     elements.suggestions.innerHTML = '';
     appState.selectedSuggestionIndex = -1;
     
+    // Adicionar cabeçalho com contador
+    const header = document.createElement('div');
+    header.className = 'suggestions-header';
+    header.innerHTML = `
+        <div class="suggestions-count">
+            <span class="count-number">${suggestions.length}</span>
+            <span class="count-text">resultado${suggestions.length !== 1 ? 's' : ''} encontrado${suggestions.length !== 1 ? 's' : ''}</span>
+        </div>
+    `;
+    elements.suggestions.appendChild(header);
+    
     suggestions.forEach((suggestion, index) => {
         const item = document.createElement('div');
         item.className = 'suggestion-item';
-        item.textContent = suggestion.name;
+        
+        // Definir tipo e cor baseado no term
+        let typeText = 'Medicamento';
+        let typeClass = 'suggestion-type-producto';
+        
+        switch(suggestion.type) {
+            case 'producto':
+                typeText = 'Medicamento';
+                typeClass = 'suggestion-type-producto';
+                break;
+            case 'sinonimo':
+                typeText = 'Sinônimo';
+                typeClass = 'suggestion-type-sinonimo';
+                break;
+            case 'marca':
+                typeText = 'Marca';
+                typeClass = 'suggestion-type-marca';
+                break;
+            case 'escritura':
+                typeText = 'Escritura';
+                typeClass = 'suggestion-type-escritura';
+                break;
+        }
+        
+        item.innerHTML = `
+            <div class="suggestion-name">${suggestion.name}</div>
+            <div class="suggestion-type ${typeClass}">${typeText}</div>
+        `;
         item.setAttribute('role', 'option');
         item.setAttribute('data-key', suggestion.key);
         
@@ -256,9 +366,9 @@ function updateSuggestionSelection() {
 }
 
 function selectSuggestion(key) {
-    const medication = medicationDatabase[key];
-    if (medication) {
-        elements.searchInput.value = medication.name;
+    const suggestion = appState.suggestions.find(s => s.key === key);
+    if (suggestion) {
+        elements.searchInput.value = suggestion.name;
         hideSuggestions();
         searchMedication(key);
     }
@@ -268,9 +378,35 @@ async function handleSearch() {
     const query = elements.searchInput.value.trim();
     if (!query) return;
     
-    // Buscar por nome ou chave
-    const key = Object.keys(medicationDatabase).find(k => 
-        medicationDatabase[k].name.toLowerCase() === query.toLowerCase() ||
+    // Primeiro, tentar buscar na API
+    try {
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://e-lactancia.org/megasearch/?query=${encodeURIComponent(query)}`)}`;
+        const response = await fetch(proxyUrl);
+        
+        if (!response.ok) {
+            throw new Error('Erro na API');
+        }
+        
+        const data = await response.json();
+        const medication = data.find(item => 
+            (item.term === 'producto' || item.term === 'sinonimo' || item.term === 'marca' || item.term === 'escritura') && 
+            (item.nombre_en?.toLowerCase() === query.toLowerCase() || 
+             item.nombre_es?.toLowerCase() === query.toLowerCase() ||
+             item.nombre?.toLowerCase() === query.toLowerCase() ||
+             item.nombre_paises?.toLowerCase() === query.toLowerCase())
+        );
+        
+        if (medication) {
+            searchMedication(medication.id.toString());
+            return;
+        }
+    } catch (error) {
+        console.error('Erro ao buscar medicamento:', error);
+    }
+    
+    // Fallback para base local
+    const key = Object.keys(fallbackDatabase).find(k => 
+        fallbackDatabase[k].name.toLowerCase() === query.toLowerCase() ||
         k === query.toLowerCase()
     );
     
@@ -282,20 +418,64 @@ async function handleSearch() {
 }
 
 async function searchMedication(key) {
-    const medication = medicationDatabase[key];
-    if (!medication) return;
-    
     showLoading();
     hideSuggestions();
     
-    // Simular delay de API
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Adicionar ao histórico
-    addToHistory(medication.name, key);
-    
-    // Mostrar resultados
-    showMedicationInfo(medication);
+    try {
+        let medication;
+        
+        // Verificar cache primeiro
+        if (medicationCache.has(key)) {
+            medication = medicationCache.get(key);
+        } else {
+            // Buscar na API do e-lactancia.org via proxy
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://e-lactancia.org/megasearch/?query=${encodeURIComponent(key)}`)}`;
+            const response = await fetch(proxyUrl);
+            
+            if (!response.ok) {
+                throw new Error('Erro na API');
+            }
+            
+            const data = await response.json();
+            const apiMedication = data.find(item => 
+                (item.term === 'producto' || item.term === 'sinonimo' || item.term === 'marca' || item.term === 'escritura') && 
+                item.id.toString() === key
+            );
+            
+            if (apiMedication) {
+                // Para medicamentos da API, criar um objeto básico
+                // Nota: A API de busca não retorna informações detalhadas de risco
+                medication = {
+                    name: apiMedication.nombre_en || apiMedication.nombre_es || apiMedication.nombre || apiMedication.nombre_paises,
+                    riskLevel: 'unknown',
+                    riskText: 'Informação não disponível',
+                    recommendation: 'Para informações detalhadas sobre a compatibilidade com a amamentação, consulte a fonte original.',
+                    sourceUrl: `${API_DETAIL_URL}${(apiMedication.nombre_en || apiMedication.nombre_es || apiMedication.nombre || apiMedication.nombre_paises)?.toLowerCase().replace(/\s+/g, '-')}/product/`,
+                    type: apiMedication.term
+                };
+                
+                // Salvar no cache
+                medicationCache.set(key, medication);
+                updateCacheButton();
+            } else {
+                // Fallback para base local
+                medication = fallbackDatabase[key];
+                if (!medication) {
+                    throw new Error('Medicamento não encontrado');
+                }
+            }
+        }
+        
+        // Adicionar ao histórico
+        addToHistory(medication.name, key);
+        
+        // Mostrar resultados
+        showMedicationInfo(medication);
+        
+    } catch (error) {
+        console.error('Erro ao buscar medicamento:', error);
+        showError('Erro ao buscar informações do medicamento. Tente novamente.');
+    }
     
     hideLoading();
 }
@@ -303,8 +483,34 @@ async function searchMedication(key) {
 function showMedicationInfo(medication) {
     const riskClass = `risk-${medication.riskLevel}`;
     
+    // Definir tipo e cor baseado no term
+    let typeText = 'Medicamento';
+    let typeClass = 'suggestion-type-producto';
+    
+    if (medication.type) {
+        switch(medication.type) {
+            case 'producto':
+                typeText = 'Medicamento';
+                typeClass = 'suggestion-type-producto';
+                break;
+            case 'sinonimo':
+                typeText = 'Sinônimo';
+                typeClass = 'suggestion-type-sinonimo';
+                break;
+            case 'marca':
+                typeText = 'Marca';
+                typeClass = 'suggestion-type-marca';
+                break;
+            case 'escritura':
+                typeText = 'Escritura';
+                typeClass = 'suggestion-type-escritura';
+                break;
+        }
+    }
+    
     elements.medicationInfo.innerHTML = `
         <div class="medication-name">${medication.name}</div>
+        <div class="medication-type ${typeClass}" style="margin-bottom: 1rem;">${typeText}</div>
         <div class="risk-level ${riskClass}">${medication.riskText}</div>
         <div class="recommendation">
             <h4>Recomendação:</h4>
@@ -319,7 +525,7 @@ function showMedicationInfo(medication) {
             Ver fonte original no e-lactancia.org
         </a>
         <div class="medication-actions" style="margin-top: 1rem;">
-            <button class="btn btn-primary" onclick="addToFavorites('${medication.name}', '${Object.keys(medicationDatabase).find(k => medicationDatabase[k] === medication)}')">
+            <button class="btn btn-primary" onclick="addToFavorites('${medication.name}', '${medication.key || 'unknown'}')">
                 ⭐ Adicionar aos Favoritos
             </button>
         </div>
@@ -393,10 +599,18 @@ function showHistory() {
 }
 
 function searchFromHistory(key) {
-    const medication = medicationDatabase[key];
-    if (medication) {
+    // Verificar cache primeiro
+    if (medicationCache.has(key)) {
+        const medication = medicationCache.get(key);
         elements.searchInput.value = medication.name;
         searchMedication(key);
+    } else {
+        // Fallback para base local
+        const medication = fallbackDatabase[key];
+        if (medication) {
+            elements.searchInput.value = medication.name;
+            searchMedication(key);
+        }
     }
 }
 
@@ -469,10 +683,18 @@ function showFavorites() {
 }
 
 function searchFromFavorites(key) {
-    const medication = medicationDatabase[key];
-    if (medication) {
+    // Verificar cache primeiro
+    if (medicationCache.has(key)) {
+        const medication = medicationCache.get(key);
         elements.searchInput.value = medication.name;
         searchMedication(key);
+    } else {
+        // Fallback para base local
+        const medication = fallbackDatabase[key];
+        if (medication) {
+            elements.searchInput.value = medication.name;
+            searchMedication(key);
+        }
     }
 }
 
@@ -484,6 +706,46 @@ function removeFromFavorites(key) {
     if (appState.favorites.length === 0) {
         elements.favorites.classList.add('hidden');
     }
+}
+
+// Funções de gerenciamento de cache
+function clearCache() {
+    if (confirm('Tem certeza que deseja limpar todo o cache de medicamentos?')) {
+        medicationCache.clear();
+        updateCacheButton();
+        console.log('Cache limpo com sucesso');
+    }
+}
+
+function showCache() {
+    const cacheSize = medicationCache.size;
+    const cacheItems = Array.from(medicationCache.entries()).map(([key, value]) => ({
+        key,
+        name: value.name
+    }));
+    
+    if (cacheSize === 0) {
+        alert('Cache vazio. Nenhum medicamento foi consultado ainda.');
+        return;
+    }
+    
+    const cacheList = cacheItems.map(item => `• ${item.name}`).join('\n');
+    alert(`Cache atual (${cacheSize} medicamentos):\n\n${cacheList}`);
+}
+
+function refreshSuggestions() {
+    const query = elements.searchInput.value.trim();
+    if (query.length >= 2) {
+        // Forçar nova busca ignorando cache
+        searchSuggestionsDynamic(query);
+    } else {
+        alert('Digite pelo menos 2 caracteres para buscar.');
+    }
+}
+
+function updateCacheButton() {
+    const cacheSize = medicationCache.size;
+    elements.showCache.textContent = `📋 Ver Cache (${cacheSize})`;
 }
 
 // Service Worker para cache (PWA básico)

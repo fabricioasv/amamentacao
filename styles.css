@@ -58,6 +58,20 @@ body {
     margin-bottom: 2rem;
 }
 
+.cache-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.btn-small {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    border-radius: 6px;
+}
+
 .search-box {
     display: flex;
     background: #f8f9fa;
@@ -138,6 +152,87 @@ body {
     border-bottom: none;
 }
 
+.suggestion-name {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 0.25rem;
+}
+
+.suggestion-type {
+    font-size: 0.8rem;
+    color: #6c757d;
+    background: #e9ecef;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.suggestion-type-producto {
+    background: #d4edda;
+    color: #155724;
+}
+
+.suggestion-type-sinonimo {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.suggestion-type-marca {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.suggestion-type-escritura {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.suggestion-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    color: #6c757d;
+    font-style: italic;
+}
+
+.spinner-small {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.suggestions-header {
+    background: #f8f9fa;
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+    font-size: 0.9rem;
+}
+
+.suggestions-count {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #6c757d;
+}
+
+.count-number {
+    background: #667eea;
+    color: white;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.count-text {
+    font-weight: 500;
+}
+
 /* Loading */
 .loading {
     text-align: center;
@@ -171,6 +266,15 @@ body {
     font-size: 1.5rem;
     font-weight: 600;
     color: #333;
+    margin-bottom: 1rem;
+}
+
+.medication-type {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
     margin-bottom: 1rem;
 }
 
@@ -355,6 +459,16 @@ body {
     
     #searchButton {
         border-radius: 0 0 12px 12px;
+    }
+    
+    .cache-controls {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .btn-small {
+        width: 100%;
+        max-width: 200px;
     }
     
     .medication-info {
