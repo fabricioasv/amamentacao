@@ -115,20 +115,8 @@ function setupAutocomplete() {
         const query = e.target.value.trim();
         appState.currentSearch = query;
         
-        if (query.length < 2) {
-            hideSuggestions();
-            return;
-        }
-        
-        // Cancelar busca anterior se ainda estiver pendente
-        if (window.searchTimeout) {
-            clearTimeout(window.searchTimeout);
-        }
-        
-        // Fazer busca dinâmica com delay para evitar muitas chamadas
-        window.searchTimeout = setTimeout(() => {
-            searchSuggestionsDynamic(query);
-        }, 200); // Reduzido para 200ms para resposta mais rápida
+        // Limpar sugestões quando o usuário digita
+        hideSuggestions();
     });
     
     // Navegação por teclado
@@ -139,62 +127,6 @@ function setupAutocomplete() {
     });
 }
 
-async function searchSuggestionsDynamic(query) {
-    // Evitar múltiplas buscas simultâneas
-    if (appState.isSearching) {
-        return;
-    }
-    
-    appState.isSearching = true;
-    
-    try {
-        // Mostrar indicador de carregamento nas sugestões
-        showSuggestionsLoading();
-        
-        // Buscar na API do e-lactancia.org via proxy
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://e-lactancia.org/megasearch/?query=${encodeURIComponent(query)}`)}`;
-        const response = await fetch(proxyUrl);
-        
-        if (!response.ok) {
-            throw new Error('Erro na API');
-        }
-        
-        const data = await response.json();
-        
-        console.log('API Response for "dipi":', data.length, 'total items');
-        console.log('First 3 items:', data.slice(0, 3));
-        
-        // Filtrar produtos, sinônimos e marcas relevantes
-        const matches = data
-            .filter(item => 
-                item.term === 'producto' || 
-                item.term === 'sinonimo' || 
-                item.term === 'marca' ||
-                item.term === 'escritura'
-            )
-            .slice(0, 20) // Aumentado para 20 resultados
-            .map(item => ({
-                id: item.id,
-                name: item.nombre_en || item.nombre_es || item.nombre || item.nombre_paises,
-                key: item.id.toString(),
-                type: item.term
-            }));
-        
-        console.log('Filtered matches:', matches.length);
-        console.log('First 5 matches:', matches.slice(0, 5));
-        
-        
-        appState.suggestions = matches;
-        showSuggestions(matches);
-        
-    } catch (error) {
-        console.error('Erro ao buscar sugestões:', error);
-        // Fallback para busca local se a API falhar
-        searchSuggestionsFallback(query);
-    } finally {
-        appState.isSearching = false;
-    }
-}
 
 async function searchSuggestions(query) {
     try {
@@ -222,38 +154,11 @@ async function searchSuggestions(query) {
         
     } catch (error) {
         console.error('Erro ao buscar sugestões:', error);
-        // Fallback para busca local se a API falhar
-        searchSuggestionsFallback(query);
+        showError('Erro ao buscar medicamentos. Tente novamente.');
     }
 }
 
-function searchSuggestionsFallback(query) {
-    const matches = Object.keys(fallbackDatabase)
-        .filter(key => 
-            fallbackDatabase[key].name.toLowerCase().includes(query.toLowerCase()) ||
-            key.includes(query.toLowerCase())
-        )
-        .slice(0, 5)
-        .map(key => ({
-            key,
-            name: fallbackDatabase[key].name,
-            id: key
-        }));
-    
-    appState.suggestions = matches;
-    showSuggestions(matches);
-}
 
-function showSuggestionsLoading() {
-    elements.suggestions.innerHTML = `
-        <div class="suggestion-loading">
-            <div class="spinner-small"></div>
-            <span>Buscando medicamentos...</span>
-        </div>
-    `;
-    elements.suggestions.style.display = 'block';
-    elements.suggestions.classList.remove('hidden');
-}
 
 function showSuggestions(suggestions) {
     if (suggestions.length === 0) {
@@ -380,8 +285,11 @@ async function handleSearch() {
     const query = elements.searchInput.value.trim();
     if (!query) return;
     
-    // Primeiro, tentar buscar na API
+    showLoading();
+    hideSuggestions();
+    
     try {
+        // Buscar na API do e-lactancia.org
         const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://e-lactancia.org/megasearch/?query=${encodeURIComponent(query)}`)}`;
         const response = await fetch(proxyUrl);
         
@@ -390,33 +298,47 @@ async function handleSearch() {
         }
         
         const data = await response.json();
-        const medication = data.find(item => 
-            (item.term === 'producto' || item.term === 'sinonimo' || item.term === 'marca' || item.term === 'escritura') && 
-            (item.nombre_en?.toLowerCase() === query.toLowerCase() || 
-             item.nombre_es?.toLowerCase() === query.toLowerCase() ||
-             item.nombre?.toLowerCase() === query.toLowerCase() ||
-             item.nombre_paises?.toLowerCase() === query.toLowerCase())
-        );
+        console.log('Resultados da API para "' + query + '":', data.length, 'total items');
         
-        if (medication) {
-            searchMedication(medication.id.toString());
+        // Filtrar produtos, sinônimos e marcas relevantes
+        const matches = data
+            .filter(item => 
+                item.term === 'producto' || 
+                item.term === 'sinonimo' || 
+                item.term === 'marca' ||
+                item.term === 'escritura'
+            )
+            .slice(0, 20) // Mostrar até 20 resultados
+            .map(item => ({
+                id: item.id,
+                name: item.nombre_en || item.nombre_es || item.nombre || item.nombre_paises,
+                key: item.id.toString(),
+                type: item.term
+            }));
+        
+        console.log('Resultados filtrados:', matches.length);
+        
+        if (matches.length === 0) {
+            showError('Nenhum medicamento encontrado. Tente buscar por outro nome.');
             return;
         }
+        
+        // Se houver apenas 1 resultado, buscar diretamente
+        if (matches.length === 1) {
+            const medication = matches[0];
+            await searchMedicationById(medication.id, medication.type);
+        } else {
+            // Se houver múltiplos resultados, mostrar sugestões
+            appState.suggestions = matches;
+            showSuggestions(matches);
+        }
+        
     } catch (error) {
         console.error('Erro ao buscar medicamento:', error);
+        showError('Erro ao buscar informações do medicamento. Tente novamente.');
     }
     
-    // Fallback para base local
-    const key = Object.keys(fallbackDatabase).find(k => 
-        fallbackDatabase[k].name.toLowerCase() === query.toLowerCase() ||
-        k === query.toLowerCase()
-    );
-    
-    if (key) {
-        searchMedication(key);
-    } else {
-        showError('Medicamento não encontrado. Tente buscar por outro nome.');
-    }
+    hideLoading();
 }
 
 async function searchMedicationById(medicationId, termType) {
