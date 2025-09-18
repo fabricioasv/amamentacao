@@ -1,6 +1,5 @@
 // Estado da aplicação
 const appState = {
-    searchHistory: JSON.parse(localStorage.getItem('medicationHistory') || '[]'),
     favorites: JSON.parse(localStorage.getItem('medicationFavorites') || '[]'),
     currentSearch: '',
     suggestions: [],
@@ -16,9 +15,6 @@ const elements = {
     loading: document.getElementById('loading'),
     results: document.getElementById('results'),
     medicationInfo: document.getElementById('medicationInfo'),
-    history: document.getElementById('history'),
-    historyList: document.getElementById('historyList'),
-    clearHistory: document.getElementById('clearHistory'),
     favorites: document.getElementById('favorites'),
     favoritesList: document.getElementById('favoritesList')
 };
@@ -226,18 +222,12 @@ const fallbackDatabase = {
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
     setupEventListeners();
-    loadHistory();
     loadFavorites();
 });
 
 function initializeApp() {
     // Configurar autocompletar
     setupAutocomplete();
-    
-    // Mostrar histórico se existir
-    if (appState.searchHistory.length > 0) {
-        showHistory();
-    }
     
     // Mostrar favoritos se existirem
     if (appState.favorites.length > 0) {
@@ -254,8 +244,6 @@ function setupEventListeners() {
         }
     });
     
-    // Histórico
-    elements.clearHistory.addEventListener('click', clearHistory);
     
     // Fechar sugestões ao clicar fora
     document.addEventListener('click', function(e) {
@@ -566,9 +554,6 @@ async function searchMedicationById(medicationId, termType) {
             medicationCache.set(key, medication);
         }
     
-    // Adicionar ao histórico
-    addToHistory(medication.name, key);
-    
     // Mostrar resultados
         await showMedicationInfo(medication);
         
@@ -643,9 +628,6 @@ async function searchMedication(key) {
                 }
             }
         }
-        
-        // Adicionar ao histórico
-        addToHistory(medication.name, key);
         
         // Mostrar resultados
         await showMedicationInfo(medication);
@@ -792,82 +774,6 @@ function showError(message) {
     elements.results.classList.remove('hidden');
 }
 
-// Histórico
-function addToHistory(name, key) {
-    const existingIndex = appState.searchHistory.findIndex(item => item.key === key);
-    
-    if (existingIndex >= 0) {
-        // Mover para o topo
-        appState.searchHistory.splice(existingIndex, 1);
-    }
-    
-    appState.searchHistory.unshift({ name, key, timestamp: Date.now() });
-    
-    // Manter apenas os últimos 10
-    appState.searchHistory = appState.searchHistory.slice(0, 10);
-    
-    localStorage.setItem('medicationHistory', JSON.stringify(appState.searchHistory));
-    loadHistory();
-}
-
-function loadHistory() {
-    if (appState.searchHistory.length === 0) return;
-    
-    elements.historyList.innerHTML = '';
-    
-    appState.searchHistory.forEach(item => {
-        const historyItem = document.createElement('div');
-        historyItem.className = 'history-item';
-        historyItem.innerHTML = `
-            <span class="item-name">${item.name}</span>
-            <div class="item-actions">
-                <button class="btn btn-primary" onclick="searchFromHistory('${item.key}')">Buscar</button>
-                <button class="btn btn-danger" onclick="removeFromHistory('${item.key}')">Remover</button>
-            </div>
-        `;
-        elements.historyList.appendChild(historyItem);
-    });
-    
-    showHistory();
-}
-
-function showHistory() {
-    elements.history.classList.remove('hidden');
-}
-
-function searchFromHistory(key) {
-    // Verificar cache primeiro
-    if (medicationCache.has(key)) {
-        const medication = medicationCache.get(key);
-        elements.searchInput.value = medication.name;
-        searchMedication(key);
-    } else {
-        // Fallback para base local
-        const medication = fallbackDatabase[key];
-    if (medication) {
-        elements.searchInput.value = medication.name;
-        searchMedication(key);
-        }
-    }
-}
-
-function removeFromHistory(key) {
-    appState.searchHistory = appState.searchHistory.filter(item => item.key !== key);
-    localStorage.setItem('medicationHistory', JSON.stringify(appState.searchHistory));
-    loadHistory();
-    
-    if (appState.searchHistory.length === 0) {
-        elements.history.classList.add('hidden');
-    }
-}
-
-function clearHistory() {
-    if (confirm('Tem certeza que deseja limpar todo o histórico?')) {
-        appState.searchHistory = [];
-        localStorage.removeItem('medicationHistory');
-        elements.history.classList.add('hidden');
-    }
-}
 
 // Favoritos
 function addToFavorites(name, key) {
